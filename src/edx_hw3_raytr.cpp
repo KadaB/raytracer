@@ -107,6 +107,14 @@ bool intersectTriangle(glm::vec3 origin, glm::vec3 rayDir, glm::vec3 A, glm::vec
 		return false;
 }
 
+glm::vec3 inverseTransformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3((glm::inverse(transform)) * glm::vec4(vector, 1));
+}
+
+glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(transform * glm::vec4(vector, 1));
+}
+//#define INVERSE
 int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	float min_t = std::numeric_limits<float>::max();
 	int hitObject = -1;
@@ -114,16 +122,30 @@ int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneR
 	for(int i = 0; i < sceneReader.geometry.size(); i++) {
 		IndexedGeometry &geometry = sceneReader.geometry[i];
 		float cur_t;
-
 		bool intersection = false;
+
+#ifdef INVERSE
+		origin = transformPoint(geometry.inverseTransform, origin);
+		rayDir = glm::normalize(transformPoint(geometry.inverseTransform, rayDir));
+#endif
 		if(geometry.geometryType == GeometryType::SPHERE) {
-			intersection = intersectSphere(origin, rayDir, geometry.position, geometry.radius, cur_t);
+#ifndef INVERSE
+			glm::vec3 position = glm::vec3(geometry.transform* glm::vec4(geometry.position, 1));
+#else
+			glm::vec3 position = geometry.position;
+#endif
+			intersection = intersectSphere(origin, rayDir, position, geometry.radius, cur_t);
 		}
 		else if(geometry.geometryType == GeometryType::TRIANGLE) {
 			glm::vec3 A = sceneReader.vertices[geometry.vertexIndices[0]];
 			glm::vec3 B = sceneReader.vertices[geometry.vertexIndices[1]];
 			glm::vec3 C = sceneReader.vertices[geometry.vertexIndices[2]];
 
+#ifndef INVERSE
+			A = glm::vec3(geometry.transform * glm::vec4(A, 1));
+			B = glm::vec3(geometry.transform * glm::vec4(B, 1));
+			C = glm::vec3(geometry.transform * glm::vec4(C, 1));
+#endif
 			intersection = intersectTriangle(origin, rayDir, A, B, C, cur_t);
 		}
 
@@ -143,15 +165,18 @@ int main() {
 	SceneReader sr;
 	sr.readScene("res/scene3.test");
 	sr.camera.updateAxes();
+	sr.printGeomTransforms();
+//	return 0;
 
 	const int width = sr.camera.width;
 	const int height = sr.camera.height; // image dims
 
 	Image3f image(width, height);
+	image.checker(16, glm::vec3(0.6f, 0.6f, 0.6f), glm::vec3(0.8f, 0.8f, 0.8f));
 
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
-			glm::vec3 rayDir = sr.camera.getRayAt((float) x + .5, (float) y + .5);
+			glm::vec3 rayDir = sr.camera.getRayAt(x, y);
 
 			const int hitIndex = intersectAllGeometry(sr.camera.eye, rayDir, sr);
 			if(hitIndex >= 0) {

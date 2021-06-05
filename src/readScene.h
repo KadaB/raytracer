@@ -39,15 +39,17 @@ struct Camera {
 		v = glm::normalize(glm::cross(w, u));
 	};
 
-	glm::vec3 getRayAt(float x, float y) {
+	glm::vec3 getRayAt(int x, int y) {
+		float j = (float) x + 0.5;
+		float i = (float) y + 0.5;
 		const float aspect = (float) width / (float) height;
 		const float tany = glm::tan(fovDeg * glm::pi<float>() / 360.f); //conv to rad and half fovy
 		const float tanx = tany * aspect;
 		const float halfW = (float) width / 2.f;
 		const float halfH = (float) height / 2.f;
 
-		const float a = tanx * ((x - halfW) / halfW);
-		const float b = tany * ((halfH - y) / halfH);
+		const float a = tanx * ((j - halfW) / halfW);
+		const float b = tany * ((halfH - i) / halfH);
 		return glm::normalize(a * u + b * v - w);
 
 //		float Px = (2 * ((x + 0.5) / width) - 1) * glm::tan(fovDeg / 2 * M_PI / 180) * aspect;
@@ -75,6 +77,9 @@ struct Light {
 struct IndexedGeometry {
 	int ambientIndex, diffuseIndex, specularIndex;
 	GeometryType geometryType;
+
+	glm::mat4 transform;
+	glm::mat4 inverseTransform;
 
 	int vertexIndices[3];
 
@@ -177,9 +182,12 @@ struct SceneReader {
 
 				linestream >> triangle.vertexIndices[0] >> triangle.vertexIndices[1] >> triangle.vertexIndices[2];
 
+				triangle.transform = glm::mat4(current_transformation);
+				triangle.inverseTransform = glm::mat4(glm::transpose(glm::inverse(current_transformation)));
 #ifdef VERBOSE
 				std::cout << "triangle command->" << cmd
 						<< " at " << geometry.size() <<": " << triangle.vertexIndices[0] << " " << triangle.vertexIndices[1] << " " << triangle.vertexIndices[2] << std::endl;
+				std::cout << "\ttransform: " << glm::to_string(triangle.transform) << std::endl;
 #endif
 
 				geometry.push_back(triangle);
@@ -192,12 +200,16 @@ struct SceneReader {
 				sphere.specularIndex = specularColors.size() - 1;
 				sphere.geometryType = GeometryType::SPHERE;
 
+				sphere.transform = glm::mat4(current_transformation);
+				sphere.inverseTransform = glm::mat4(glm::transpose(glm::inverse(current_transformation)));
+
 				linestream >> sphere.position[0] >> sphere.position[1]>> sphere.position[2] >> sphere.radius;
 
 #ifdef VERBOSE
 				std::cout << "sphere command->" << cmd
 						<< " at " << geometry.size() <<": " << sphere.position[0] << " " << sphere.position[1] << " " << sphere.position[2]
                         << " " << sphere.radius << std::endl;
+				std::cout << "\ttransform: " << glm::to_string(sphere.transform) << std::endl;
 #endif
 
 				geometry.push_back(sphere);
@@ -256,30 +268,51 @@ struct SceneReader {
 			else if(cmd == "translate") {
 				glm::vec3 translationVector;
 				linestream >> translationVector[0] >> translationVector[1] >> translationVector[2];
-				current_transformation = current_transformation * glm::translate(glm::mat4(), translationVector);
-#ifdef VERBOSE
 				std::cout << "translate cmd: translation vector " << glm::to_string(translationVector) << std::endl;
+				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
+				current_transformation =  glm::translate(glm::mat4(1.0f), translationVector);
+#ifdef VERBOSE
+				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
 #endif
 			}
 			else if(cmd == "rotate") {
 				glm::vec3 rotationAxis;
 				float degrees;
 				linestream >> rotationAxis[0] >> rotationAxis[1] >> rotationAxis[2] >> degrees;
-				current_transformation = current_transformation * glm::mat4(glm::rotate(degrees, rotationAxis));
-#ifdef VERBOSE
 				std::cout << "rotation cmd: " << glm::to_string(rotationAxis) << " degrees: " << degrees << std::endl;
+				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
+				current_transformation = current_transformation * glm::mat4(glm::rotate(degrees, rotationAxis));
+				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
+#ifdef VERBOSE
 #endif
 			}
 			else if(cmd == "scale") {
 				glm::vec3 scaleVector;
 				linestream >> scaleVector[0] >> scaleVector[1] >> scaleVector[2];
-				current_transformation = current_transformation * glm::scale(scaleVector);
-#ifdef VERBOSE
 				std::cout << "scale cmd: scale vector " << glm::to_string(scaleVector) << std::endl;
+				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
+				current_transformation = current_transformation * glm::scale(scaleVector);
+				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
+#ifdef VERBOSE
 #endif
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands
+		}
+	}
+
+	void printOutTransformStack() {
+		while(!transformStack.empty()) {
+			std::cout << glm::to_string(transformStack.top()) << std::endl;
+			transformStack.pop();
+		}
+	}
+
+	void printGeomTransforms() {
+		for(int i = 0;i < geometry.size(); i++) {
+			IndexedGeometry geo = geometry[i];
+
+			std::cout << i << ": " << glm::to_string(geo.transform) << std::endl;
 		}
 	}
 };

@@ -77,11 +77,10 @@ public:
 	}
 
 	// create rgb gradient image
-	void rgbImage() {
-		glm::vec3 nwColor(0, 0, 1); // A - top left corner
-		glm::vec3 neColor(0, 1, 0); // B - top right corner
-		glm::vec3 swColor(1, 0, 0); // C - bottom right
-		glm::vec3 seColor(1, 1, 0); // D - bottom left
+	void rgbImage(glm::vec3 nwColor = glm::vec3(0, 0, 1),  // A - top left corner
+				  glm::vec3 neColor = glm::vec3(0, 1, 0), // B - top right corner
+				  glm::vec3 swColor = glm::vec3(1, 0, 0), // C - bottom right
+				  glm::vec3 seColor = glm::vec3(1, 1, 0)) { // D - bottom left
 
 		// interpolate over the result of two interpolation levels: lerp(lerp(A,B,s), lerp(D,C,s), t)
 		for (int y = 0; y < height; y++) {
@@ -98,9 +97,9 @@ public:
 	}
 
 	// Draw test checker pattern
-	void checker(int patternSize) {
-		glm::vec3 colorA = glm::vec3(1, 0, 0);
-		glm::vec3 colorB = glm::vec3(0, 1, 0);
+	void checker(int patternSize,
+				 glm::vec3 colorA = glm::vec3(1, 0, 0),
+				 glm::vec3 colorB = glm::vec3(0, 1, 0)) {
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
