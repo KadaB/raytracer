@@ -270,7 +270,7 @@ struct SceneReader {
 				linestream >> translationVector[0] >> translationVector[1] >> translationVector[2];
 				std::cout << "translate cmd: translation vector " << glm::to_string(translationVector) << std::endl;
 				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
-				current_transformation =  glm::translate(glm::mat4(1.0f), translationVector);
+				current_transformation = current_transformation * glm::translate(glm::mat4(1.0f), translationVector);
 #ifdef VERBOSE
 				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
 #endif
