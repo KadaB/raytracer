@@ -136,24 +136,49 @@ public:
 //
 //	}
 
-	void display() {
-		std::unique_ptr<float> buffer(get_bgr_buffer());
+	int display() {
+		std::unique_ptr<float> buffer(get_3f_bgr_buffer());
 		cv::Mat flt_img(height, width, CV_32FC3, buffer.get()); /* Red Green Blue Alpha (RGBA) channels from the sdl surface */
 		cv::imshow("Display ", flt_img);
-		int k = cv::waitKey(0);
+		return cv::waitKey(0);
+	}
+
+	void save(std::string filename) {
+		std::unique_ptr<byte> buffer(get_3b_bgr_buffer());
+		cv::Mat flt_img(height, width, CV_8UC3, buffer.get()); /* Red Green Blue Alpha (RGBA) channels from the sdl surface */
+		cv::imwrite(filename, flt_img);
+		std::cout << "Written to: " << filename << std::endl;
 	}
 
 private:
-	float* get_bgr_buffer() {
+	float* get_3f_bgr_buffer() {
 		float *buffer = new float[width * height * 3];
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				glm::vec3 color = getAt(x, y);
 				int offset = (y * width + x) * 3;
+
 				buffer[offset] = color[2];
 				buffer[offset + 1] = color[1];
 				buffer[offset + 2] = color[0];
+			}
+		}
+
+		return buffer;
+	}
+
+	byte* get_3b_bgr_buffer() {
+		byte *buffer = new byte[width * height * 3];
+
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				glm::vec3 color = getAt(x, y);
+				int offset = (y * width + x) * 3;
+
+				buffer[offset]  = (byte) (clamp(color[2]) * 255);
+				buffer[offset+1]= (byte) (clamp(color[1]) * 255);
+				buffer[offset+2]= (byte) (clamp(color[0]) * 255);
 			}
 		}
 

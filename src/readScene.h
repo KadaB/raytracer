@@ -18,7 +18,7 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-#define VERBOSE
+//#define VERBOSE
 
 struct Camera {
 	glm::vec3 eye;
@@ -75,11 +75,16 @@ struct Light {
 };
 
 struct IndexedGeometry {
-	int ambientIndex, diffuseIndex, specularIndex;
 	GeometryType geometryType;
+	glm::vec3 ambientColor = glm::vec3(0, 0, 0);
+	glm::vec3 diffuseColor = glm::vec3(0, 0, 0);
+	glm::vec3 specularColor = glm::vec3(0, 0, 0);
+	glm::vec3 emissionColor = glm::vec3(0, 0, 0);
+	float shininess;
 
 	glm::mat4 transform;
 	glm::mat4 inverseTransform;
+	glm::mat3 inverseTransposeTransform;
 
 	int vertexIndices[3];
 
@@ -94,12 +99,16 @@ struct SceneReader {
 	std::vector<IndexedGeometry> geometry;
 
 	// save all occurring material values, assign index to geometry
-	std::vector<glm::vec3> ambientColors;
-	std::vector<glm::vec3> diffuseColors;
-	std::vector<glm::vec3> specularColors;
+	glm::vec3 cur_ambientColor;
+	glm::vec3 cur_diffuseColor;
+	glm::vec3 cur_specularColor;
+	glm::vec3 cur_emissionColor;
+	float cur_shininessValue;
 
 	std::stack<glm::mat4> transformStack;
 	glm::mat4 current_transformation = glm::mat4(1.f); // identity matrix
+
+	std::string outputFilename = "";
 
 	void readScene(std::string filename) {
 		transformStack.push(glm::mat4(1.f));	// last unpoppable entry = identity matrix
@@ -175,15 +184,18 @@ struct SceneReader {
 			else if(cmd == "tri") {
 				IndexedGeometry triangle;
 				// negative index allowed: no material entry
-				triangle.ambientIndex = ambientColors.size() - 1;
-				triangle.diffuseIndex = diffuseColors.size() - 1;
-				triangle.specularIndex = specularColors.size() - 1;
+				triangle.ambientColor = cur_ambientColor;
+				triangle.diffuseColor = cur_diffuseColor;
+				triangle.specularColor = cur_specularColor;
+				triangle.emissionColor = cur_emissionColor;
+				triangle.shininess = cur_shininessValue;
 				triangle.geometryType = GeometryType::TRIANGLE;
 
 				linestream >> triangle.vertexIndices[0] >> triangle.vertexIndices[1] >> triangle.vertexIndices[2];
 
 				triangle.transform = glm::mat4(current_transformation);
-				triangle.inverseTransform = glm::mat4(glm::transpose(glm::inverse(current_transformation)));
+				triangle.inverseTransform = glm::mat4(glm::inverse(current_transformation));
+				triangle.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
 #ifdef VERBOSE
 				std::cout << "triangle command->" << cmd
 						<< " at " << geometry.size() <<": " << triangle.vertexIndices[0] << " " << triangle.vertexIndices[1] << " " << triangle.vertexIndices[2] << std::endl;
@@ -195,13 +207,16 @@ struct SceneReader {
 			else if(cmd == "sphere") {
 				IndexedGeometry sphere;
 				// negative index allowed: no material entry
-				sphere.ambientIndex = ambientColors.size() - 1;
-				sphere.diffuseIndex = diffuseColors.size() - 1;
-				sphere.specularIndex = specularColors.size() - 1;
+				sphere.ambientColor = cur_ambientColor;
+				sphere.diffuseColor = cur_diffuseColor;
+				sphere.specularColor = cur_specularColor;
+				sphere.emissionColor = cur_emissionColor;
+				sphere.shininess = cur_shininessValue;
 				sphere.geometryType = GeometryType::SPHERE;
 
 				sphere.transform = glm::mat4(current_transformation);
-				sphere.inverseTransform = glm::mat4(glm::transpose(glm::inverse(current_transformation)));
+				sphere.inverseTransform = glm::mat4(glm::inverse(current_transformation));
+				sphere.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
 
 				linestream >> sphere.position[0] >> sphere.position[1]>> sphere.position[2] >> sphere.radius;
 
@@ -215,37 +230,21 @@ struct SceneReader {
 				geometry.push_back(sphere);
 			}
 			else if(cmd == "ambient") {
-				glm::vec3 color;
-				linestream >> color[0] >> color[1] >> color[2];
-
-#ifdef VERBOSE
-				std::cout << "ambient command\t->" << cmd
-						<< " at " << ambientColors.size() <<": " << color[0] << " " << color[1] << " " << color[2] << std::endl;
-#endif
-
-				ambientColors.push_back(color);
+				linestream >> cur_ambientColor[0] >> cur_ambientColor[1] >> cur_ambientColor[2];
 			}
 			else if(cmd == "specular") {
-				glm::vec3 color;
-				linestream >> color[0] >> color[1] >> color[2];
+				linestream >> cur_specularColor[0] >> cur_specularColor[1] >> cur_specularColor[2];
 
-#ifdef VERBOSE
-				std::cout << "specular command->" << cmd
-						<< " at " << specularColors.size() <<": " << color[0] << " " << color[1] << " " << color[2] << std::endl;
-#endif
-
-				specularColors.push_back(color);
 			}
 			else if(cmd == "diffuse") {
-				glm::vec3 color;
-				linestream >> color[0] >> color[1] >> color[2];
-
-#ifdef VERBOSE
-				std::cout << "diffuse command\t->" << cmd
-						<< " at " << diffuseColors.size() <<": " << color[0] << " " << color[1] << " " << color[2] << std::endl;
-#endif
-
-				diffuseColors.push_back(color);
+				linestream >> cur_diffuseColor[0] >> cur_diffuseColor[1] >> cur_diffuseColor[2];
+			}
+			else if(cmd == "emission") {
+				linestream >> cur_emissionColor[0] >> cur_emissionColor[1] >> cur_emissionColor[2];
+			}
+			else if(cmd == "shininess") {
+				linestream >> cur_shininessValue;
+				std::cout << "shininess: " << cur_shininessValue << std::endl;
 			}
 			else if(cmd == "pushTransform") {
 #ifdef VERBOSE
@@ -281,7 +280,7 @@ struct SceneReader {
 				linestream >> rotationAxis[0] >> rotationAxis[1] >> rotationAxis[2] >> degrees;
 				std::cout << "rotation cmd: " << glm::to_string(rotationAxis) << " degrees: " << degrees << std::endl;
 				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
-				current_transformation = current_transformation * glm::mat4(glm::rotate(degrees, rotationAxis));
+				current_transformation = current_transformation * glm::rotate(degrees*glm::pi<float>()/180.f, rotationAxis);
 				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
 #ifdef VERBOSE
 #endif
@@ -295,6 +294,16 @@ struct SceneReader {
 				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
 #ifdef VERBOSE
 #endif
+			}
+			else if(cmd == "output") {
+				linestream >> outputFilename;
+				std::cout << "filename: " << outputFilename << std::endl;
+			}
+			else if(cmd == "point") {
+				Light light;
+				linestream >> light.position[0] >> light.position[1] >> light.position[2]
+                           >> light.color[0] >> light.color[1]>> light.color[2];
+				light.type = LightType::POINT;
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands

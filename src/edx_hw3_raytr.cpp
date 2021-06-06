@@ -107,14 +107,17 @@ bool intersectTriangle(glm::vec3 origin, glm::vec3 rayDir, glm::vec3 A, glm::vec
 		return false;
 }
 
-glm::vec3 inverseTransformPoint(glm::mat4 transform, glm::vec3 vector) {
-	return glm::vec3((glm::inverse(transform)) * glm::vec4(vector, 1));
+glm::vec3 normalTransformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(glm::transpose(glm::inverse(transform)) * glm::vec4(vector, 1));
 }
-
+glm::vec3 inverseTransformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(glm::inverse(transform) * glm::vec4(vector, 1));
+}
 glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
 	return glm::vec3(transform * glm::vec4(vector, 1));
 }
-//#define INVERSE
+
+#define INVERSE
 int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	float min_t = std::numeric_limits<float>::max();
 	int hitObject = -1;
@@ -125,16 +128,22 @@ int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneR
 		bool intersection = false;
 
 #ifdef INVERSE
-		origin = transformPoint(geometry.inverseTransform, origin);
-		rayDir = glm::normalize(transformPoint(geometry.inverseTransform, rayDir));
+		const glm::vec3 new_origin = inverseTransformPoint(geometry.transform, origin);
+		const glm::vec3 new_rayPoint = inverseTransformPoint(geometry.transform, origin + rayDir);
+		glm::vec3 new_rayDir = new_rayPoint - new_origin;
+		const float rayDirLen = glm::length(new_rayDir);
+		new_rayDir = glm::normalize(new_rayDir);
+#else
+		const glm::vec3 new_origin = origin;
+		const glm::vec3 new_rayDir = rayDir;
 #endif
 		if(geometry.geometryType == GeometryType::SPHERE) {
-#ifndef INVERSE
-			glm::vec3 position = glm::vec3(geometry.transform* glm::vec4(geometry.position, 1));
-#else
+#ifdef INVERSE
 			glm::vec3 position = geometry.position;
+#else
+			glm::vec3 position = transformPoint(geometry.transform, geometry.position);
 #endif
-			intersection = intersectSphere(origin, rayDir, position, geometry.radius, cur_t);
+			intersection = intersectSphere(new_origin, new_rayDir, position, geometry.radius, cur_t);
 		}
 		else if(geometry.geometryType == GeometryType::TRIANGLE) {
 			glm::vec3 A = sceneReader.vertices[geometry.vertexIndices[0]];
@@ -142,16 +151,16 @@ int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneR
 			glm::vec3 C = sceneReader.vertices[geometry.vertexIndices[2]];
 
 #ifndef INVERSE
-			A = glm::vec3(geometry.transform * glm::vec4(A, 1));
-			B = glm::vec3(geometry.transform * glm::vec4(B, 1));
-			C = glm::vec3(geometry.transform * glm::vec4(C, 1));
+			A = transformPoint(geometry.transform, A);
+			B = transformPoint(geometry.transform, B);
+			C = transformPoint(geometry.transform, C);
 #endif
-			intersection = intersectTriangle(origin, rayDir, A, B, C, cur_t);
+			intersection = intersectTriangle(new_origin, new_rayDir, A, B, C, cur_t);
 		}
 
 		if(intersection) {
-			if(cur_t < min_t) {
-				min_t = cur_t;
+			if(cur_t / rayDirLen < min_t) {
+				min_t = cur_t / rayDirLen ;
 				hitObject = i;
 			}
 		}
@@ -160,12 +169,10 @@ int intersectAllGeometry(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sceneR
 	return hitObject;
 }
 
-int main() {
-	cout << "Hello Brother. Writing image." << endl;
+void raytrace() {
 	SceneReader sr;
-	sr.readScene("res/scene3.test");
+	sr.readScene("res/scene4-ambient.test");
 	sr.camera.updateAxes();
-	sr.printGeomTransforms();
 //	return 0;
 
 	const int width = sr.camera.width;
@@ -173,6 +180,7 @@ int main() {
 
 	Image3f image(width, height);
 	image.checker(16, glm::vec3(0.6f, 0.6f, 0.6f), glm::vec3(0.8f, 0.8f, 0.8f));
+//	image.checker(16, glm::vec3(0, 0, 0), glm::vec3(0, 0, 0));
 
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
@@ -182,14 +190,25 @@ int main() {
 			if(hitIndex >= 0) {
 				IndexedGeometry &geometry = sr.geometry[hitIndex];
 
-				glm::vec3 color = sr.ambientColors[geometry.ambientIndex];
+				glm::vec3 color = geometry.ambientColor + geometry.emissionColor;
 				image.setAt(x, y, color);
 			}
 		}
 	}
 
-	image.display();
+	int k = image.display();
+//	std::cout << "last keycode pressed: " << k << std::endl;
+	if(k == 10) { // || !sr.outputFilename.empty()) {
+		std::string filename =
+				sr.outputFilename.empty() ? "raytrace.png" :  sr.outputFilename;
+		image.save(filename);
+	}
+}
 
+int main() {
+	cout << "Hello Brother. Writing image." << endl;
+
+	raytrace();
 	return 0;
 }
 
