@@ -113,9 +113,6 @@ struct SceneReader {
 	void readScene(std::string filename) {
 		transformStack.push(glm::mat4(1.f));	// last unpoppable entry = identity matrix
 
-#ifdef VERBOSE
-		std::cout << "current transformation: " << glm::to_string(current_transformation) << std::endl;
-#endif
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) {
 			std::cout << "file could not be read: " << filename << std::endl;
@@ -132,24 +129,12 @@ struct SceneReader {
 			if(cmd == "size") {
 				linestream >> camera.width >> camera.height;
 
-#ifdef VERBOSE
-				std::cout << "size command\t->" << cmd
-						<< " w: " << camera.width << " h: " << camera.height << std::endl;
-#endif
 			}
 			else if(cmd == "camera") {
 				linestream >> camera.eye[0] >> camera.eye[1] >> camera.eye[2]
 						   >> camera.center[0] >> camera.center[1] >> camera.center[2]
                            >> camera.worldUp[0] >> camera.worldUp[1] >> camera.worldUp[2]
 						   >> camera.fovDeg;
-
-#ifdef VERBOSE
-				std::cout << "camera command\t->" << cmd
-						<< " eye: " <<  glm::to_string(camera.eye)
-						<< " center: " << glm::to_string(camera.center)
-						<< " worldUp " << glm::to_string(camera.worldUp)
-						<< " field of view: " << camera.fovDeg << std::endl;
-#endif
 			}
 			else if(cmd == "point" || cmd == "directional") {
 				Light light;
@@ -162,11 +147,9 @@ struct SceneReader {
 					light.type = LightType::DIRECTIONAL;
 				}
 
-#ifdef VERBOSE
 				std::cout << "light command\t->" << cmd
 						<< " position: " <<  glm::to_string(light.position)
 						<< " color " << glm::to_string(light.color) << std::endl;
-#endif
 
 				lights.push_back(light);
 			}
@@ -174,10 +157,6 @@ struct SceneReader {
 				glm::vec3 vertex;
 				linestream >> vertex[0] >> vertex[1] >> vertex[2];
 
-#ifdef VERBOSE
-				std::cout << "vertex command\t->" << cmd
-						<< " at " << vertices.size() <<": " << glm::to_string(vertex) << std::endl;
-#endif
 
 				vertices.push_back(vertex);
 			}
@@ -196,11 +175,6 @@ struct SceneReader {
 				triangle.transform = glm::mat4(current_transformation);
 				triangle.inverseTransform = glm::mat4(glm::inverse(current_transformation));
 				triangle.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
-#ifdef VERBOSE
-				std::cout << "triangle command->" << cmd
-						<< " at " << geometry.size() <<": " << triangle.vertexIndices[0] << " " << triangle.vertexIndices[1] << " " << triangle.vertexIndices[2] << std::endl;
-				std::cout << "\ttransform: " << glm::to_string(triangle.transform) << std::endl;
-#endif
 
 				geometry.push_back(triangle);
 			}
@@ -219,13 +193,6 @@ struct SceneReader {
 				sphere.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
 
 				linestream >> sphere.position[0] >> sphere.position[1]>> sphere.position[2] >> sphere.radius;
-
-#ifdef VERBOSE
-				std::cout << "sphere command->" << cmd
-						<< " at " << geometry.size() <<": " << sphere.position[0] << " " << sphere.position[1] << " " << sphere.position[2]
-                        << " " << sphere.radius << std::endl;
-				std::cout << "\ttransform: " << glm::to_string(sphere.transform) << std::endl;
-#endif
 
 				geometry.push_back(sphere);
 			}
@@ -247,63 +214,32 @@ struct SceneReader {
 				std::cout << "shininess: " << cur_shininessValue << std::endl;
 			}
 			else if(cmd == "pushTransform") {
-#ifdef VERBOSE
-				std::cout << "pushTransform command: pushing current transformation stack on top: " << transformStack.size()  << std::endl;
-#endif
 				transformStack.push(current_transformation);
 			}
 			else if(cmd == "popTransform") {
-#ifdef VERBOSE
-				std::cout << "popTransform command: pop current top() " << transformStack.size() << " transformation from stack" << std::endl;
-#endif
 				if(transformStack.size() > 1) {
 					transformStack.pop(); // erase top element
 					current_transformation = glm::mat4(transformStack.top());	// previous top is now current top
-#ifdef VERBOSE
-					std::cout << "stack top: " << glm::to_string(transformStack.top()) << std::endl;
-#endif
 				}
 			}
 			else if(cmd == "translate") {
 				glm::vec3 translationVector;
 				linestream >> translationVector[0] >> translationVector[1] >> translationVector[2];
-				std::cout << "translate cmd: translation vector " << glm::to_string(translationVector) << std::endl;
-				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
 				current_transformation = current_transformation * glm::translate(glm::mat4(1.0f), translationVector);
-#ifdef VERBOSE
-				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
-#endif
 			}
 			else if(cmd == "rotate") {
 				glm::vec3 rotationAxis;
 				float degrees;
 				linestream >> rotationAxis[0] >> rotationAxis[1] >> rotationAxis[2] >> degrees;
-				std::cout << "rotation cmd: " << glm::to_string(rotationAxis) << " degrees: " << degrees << std::endl;
-				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
 				current_transformation = current_transformation * glm::rotate(degrees*glm::pi<float>()/180.f, rotationAxis);
-				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
-#ifdef VERBOSE
-#endif
 			}
 			else if(cmd == "scale") {
 				glm::vec3 scaleVector;
 				linestream >> scaleVector[0] >> scaleVector[1] >> scaleVector[2];
-				std::cout << "scale cmd: scale vector " << glm::to_string(scaleVector) << std::endl;
-				std::cout << "\t before" << glm::to_string(current_transformation) << std::endl;
 				current_transformation = current_transformation * glm::scale(scaleVector);
-				std::cout << "\t after" << glm::to_string(current_transformation) << std::endl;
-#ifdef VERBOSE
-#endif
 			}
 			else if(cmd == "output") {
 				linestream >> outputFilename;
-				std::cout << "filename: " << outputFilename << std::endl;
-			}
-			else if(cmd == "point") {
-				Light light;
-				linestream >> light.position[0] >> light.position[1] >> light.position[2]
-                           >> light.color[0] >> light.color[1]>> light.color[2];
-				light.type = LightType::POINT;
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands

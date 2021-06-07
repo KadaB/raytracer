@@ -14,6 +14,10 @@
 
 typedef unsigned char byte;
 
+float clamp(float val, float min = 0.0f, float max = 1.0f) {
+	return std::max(std::min(val, max), min);
+}
+
 class Image3f {
 	const std::string ppmHeader = "P6";
 public:
@@ -52,9 +56,6 @@ public:
 		return data[y][x];
 	}
 
-	static float clamp(float val, float min = 0.0f, float max = 1.0f) {
-		return std::max(std::min(val, max), min);
-	}
 
 	// write ppm from vec3
 	void write3fPpm(std::string filename) {
