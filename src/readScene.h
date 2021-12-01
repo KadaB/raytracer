@@ -18,8 +18,6 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-//#define VERBOSE
-
 struct Camera {
 	glm::vec3 eye;
 	glm::vec3 center;
@@ -51,10 +49,6 @@ struct Camera {
 		const float a = tanx * ((j - halfW) / halfW);
 		const float b = tany * ((halfH - i) / halfH);
 		return glm::normalize(a * u + b * v - w);
-
-//		float Px = (2 * ((x + 0.5) / width) - 1) * glm::tan(fovDeg / 2 * M_PI / 180) * aspect;
-//		float Py = (1 - 2 * ((y + 0.5) / height)) * glm::tan(fovDeg / 2 * M_PI / 180);
-//		rayDir = glm::normalize(Px * u + Py * v - w);
 	};
 };
 
@@ -72,6 +66,7 @@ struct Light {
 	glm::vec3 position;
 	glm::vec3 color;
 	LightType type;
+	glm::vec3 attenuation;	//c0, c1, c2
 };
 
 struct IndexedGeometry {
@@ -99,18 +94,21 @@ struct SceneReader {
 	std::vector<IndexedGeometry> geometry;
 
 	// save all occurring material values, assign index to geometry
-	glm::vec3 cur_ambientColor;
-	glm::vec3 cur_diffuseColor;
-	glm::vec3 cur_specularColor;
-	glm::vec3 cur_emissionColor;
-	float cur_shininessValue;
 
-	std::stack<glm::mat4> transformStack;
-	glm::mat4 current_transformation = glm::mat4(1.f); // identity matrix
 
 	std::string outputFilename = "";
 
+	const float epsilonBias = 0.001f;
+
 	void readScene(std::string filename) {
+        glm::vec3 cur_diffuseColor(0, 0, 0);
+        glm::vec3 cur_ambientColor(0, 0, 0);
+        glm::vec3 cur_specularColor(0, 0, 0);
+        glm::vec3 cur_emissionColor(0, 0, 0);
+        glm::vec3 cur_attenuationTerms(0, 0, 1);
+        float cur_shininessValue = 40;
+
+		std::stack<glm::mat4> transformStack;
 		transformStack.push(glm::mat4(1.f));	// last unpoppable entry = identity matrix
 
 		std::ifstream file(filename.c_str());
@@ -142,6 +140,7 @@ struct SceneReader {
                            >> light.color[0] >> light.color[1]>> light.color[2];
 				if(cmd == "point") {
 					light.type = LightType::POINT;
+					light.attenuation = cur_attenuationTerms;
 				}
 				else {
 					light.type = LightType::DIRECTIONAL;
@@ -172,9 +171,9 @@ struct SceneReader {
 
 				linestream >> triangle.vertexIndices[0] >> triangle.vertexIndices[1] >> triangle.vertexIndices[2];
 
-				triangle.transform = glm::mat4(current_transformation);
-				triangle.inverseTransform = glm::mat4(glm::inverse(current_transformation));
-				triangle.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
+				triangle.transform = glm::mat4(transformStack.top());
+				triangle.inverseTransform = glm::mat4(glm::inverse(transformStack.top()));
+				triangle.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(transformStack.top())));
 
 				geometry.push_back(triangle);
 			}
@@ -188,9 +187,9 @@ struct SceneReader {
 				sphere.shininess = cur_shininessValue;
 				sphere.geometryType = GeometryType::SPHERE;
 
-				sphere.transform = glm::mat4(current_transformation);
-				sphere.inverseTransform = glm::mat4(glm::inverse(current_transformation));
-				sphere.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(current_transformation)));
+				sphere.transform = glm::mat4(transformStack.top());
+				sphere.inverseTransform = glm::mat4(glm::inverse(transformStack.top()));
+				sphere.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(transformStack.top())));
 
 				linestream >> sphere.position[0] >> sphere.position[1]>> sphere.position[2] >> sphere.radius;
 
@@ -213,43 +212,39 @@ struct SceneReader {
 				linestream >> cur_shininessValue;
 				std::cout << "shininess: " << cur_shininessValue << std::endl;
 			}
+			else if(cmd == "attenuation" ) {
+				linestream >> cur_attenuationTerms[0] >> cur_attenuationTerms[1] >> cur_attenuationTerms[2];
+				std::cout << "attenuation: " << glm::to_string(cur_attenuationTerms)<< std::endl;
+			}
 			else if(cmd == "pushTransform") {
-				transformStack.push(current_transformation);
+				transformStack.push(transformStack.top());
 			}
 			else if(cmd == "popTransform") {
 				if(transformStack.size() > 1) {
 					transformStack.pop(); // erase top element
-					current_transformation = glm::mat4(transformStack.top());	// previous top is now current top
 				}
 			}
 			else if(cmd == "translate") {
 				glm::vec3 translationVector;
 				linestream >> translationVector[0] >> translationVector[1] >> translationVector[2];
-				current_transformation = current_transformation * glm::translate(glm::mat4(1.0f), translationVector);
+				transformStack.top() = glm::translate(transformStack.top(), translationVector);
 			}
 			else if(cmd == "rotate") {
 				glm::vec3 rotationAxis;
 				float degrees;
 				linestream >> rotationAxis[0] >> rotationAxis[1] >> rotationAxis[2] >> degrees;
-				current_transformation = current_transformation * glm::rotate(degrees*glm::pi<float>()/180.f, rotationAxis);
+				transformStack.top() *= glm::rotate(degrees*glm::pi<float>()/180.f, rotationAxis);
 			}
 			else if(cmd == "scale") {
 				glm::vec3 scaleVector;
 				linestream >> scaleVector[0] >> scaleVector[1] >> scaleVector[2];
-				current_transformation = current_transformation * glm::scale(scaleVector);
+				transformStack.top() *= glm::scale(scaleVector);
 			}
 			else if(cmd == "output") {
 				linestream >> outputFilename;
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands
-		}
-	}
-
-	void printOutTransformStack() {
-		while(!transformStack.empty()) {
-			std::cout << glm::to_string(transformStack.top()) << std::endl;
-			transformStack.pop();
 		}
 	}
 

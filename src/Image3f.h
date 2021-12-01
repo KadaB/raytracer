@@ -18,6 +18,10 @@ float clamp(float val, float min = 0.0f, float max = 1.0f) {
 	return std::max(std::min(val, max), min);
 }
 
+glm::vec3 clampRGB(glm::vec3 color) {
+	return glm::vec3(clamp(color[0]), clamp(color[1]), clamp(color[2]));
+}
+
 class Image3f {
 	const std::string ppmHeader = "P6";
 public:
@@ -137,11 +141,11 @@ public:
 //
 //	}
 
-	int display() {
+	int display(int ms) {
 		std::unique_ptr<float> buffer(get_3f_bgr_buffer());
 		cv::Mat flt_img(height, width, CV_32FC3, buffer.get()); /* Red Green Blue Alpha (RGBA) channels from the sdl surface */
 		cv::imshow("Display ", flt_img);
-		return cv::waitKey(0);
+		return cv::waitKey(ms);
 	}
 
 	void save(std::string filename) {
