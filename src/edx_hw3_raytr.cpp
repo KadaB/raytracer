@@ -66,7 +66,8 @@ HitInfo intersectSphereAnalytic(glm::vec3 O, glm::vec3 D, glm::vec3 S, float r) 
 
 		return HitInfo(true, x, (O + x*D) - S);
 	}
-	else if (discriminant > 0) {
+	else
+	if (discriminant > 0) {
 		float root = glm::sqrt(discriminant);
 
 		float x1 = -p/2 + root;
@@ -255,61 +256,69 @@ FragmentInfo intersectScene(glm::vec3 origin, glm::vec3 rayDir, SceneReader &sce
 	return fragmentInfo;
 }
 
+glm::vec3 calc_lighting(glm::vec3 rayDir, glm::vec3 shadowray_direction, glm::vec3 fragmentNormal,
+		glm::vec3 specularColor, glm::vec3 diffuseColor, float shininess,
+		glm::vec3 lightColor) {
+    // lambert shading .. first ...
+    // winkel zu Licht.
+    const float lambertShade =
+            clamp(glm::dot(glm::normalize(shadowray_direction), fragmentNormal));
+
+    glm::vec3 lambert = diffuseColor * lightColor * lambertShade;
+    // phong
+    glm::vec3 halfvec = glm::normalize(glm::normalize(shadowray_direction) + glm::normalize(-rayDir));
+
+    const float phongShade =
+            clamp(glm::dot(halfvec, fragmentNormal));
+
+    const float shinePow = glm::pow(std::max(phongShade, 0.f), shininess);
+    glm::vec3 phong = specularColor * lightColor * shinePow;
+
+    return lambert + phong;
+}
+
 glm::vec3 shadowRayTest(FragmentInfo fragmentInfo, IndexedGeometry &geometry, glm::vec3 rayDir, SceneReader &sr) {
+	//  TODO: ShadowRayTest nicht aus Richtung Objekt zu Licht, sonder Licht zu Objekt. Wenn index = index für Objekt, dann Licht.
+	// Sonst müsste man Licht als Objekt und dann mit Toleranz (Lotpunktabstand < epsilon).
+	// Sonst müsste man dann schauen (wie hier implementiert), ob Intersections weiter wegliegen, als die Strecke zur Geraden.
 	glm::vec3 shadowColor(0, 0, 0);
 
 	for(int i = 0; i < sr.lights.size(); i++) {
 		Light &light = sr.lights[i];
 
-		bool isInLight = false;
-		glm::vec3 shadowray_direction;
 		float attenuation = 1.0f;
 
-        shadowray_direction = light.type == LightType::POINT ?
-        		  glm::normalize(light.position - fragmentInfo.position)
-				: glm::normalize(light.position);
+        if(light.type == LightType::POINT) {
+            glm::vec3 shadowray_direction = glm::normalize(light.position - fragmentInfo.position);
+            glm::vec3 shadowray_origin = fragmentInfo.position + sr.epsilonBias * shadowray_direction;
+            FragmentInfo shadowHitInfo = intersectScene(shadowray_origin, shadowray_direction, sr);
+            float distToLight = glm::length(light.position - fragmentInfo.position);
+            float distToHit = glm::length(shadowHitInfo.position - fragmentInfo.position);
 
-        glm::vec3 shadowray_origin = fragmentInfo.position + sr.epsilonBias * shadowray_direction;
-        FragmentInfo shadowHitInfo = intersectScene(shadowray_origin, shadowray_direction, sr);
+            attenuation = light.attenuation[0]
+                        + light.attenuation[1] * distToLight
+                        + light.attenuation[2] * distToLight * distToLight ;
 
-		if(light.type == LightType::POINT) {
-            const float light_distance = glm::length(light.position - fragmentInfo.position);
-            const float hit_dist = glm::length(shadowHitInfo.position - fragmentInfo.position);
-            const bool inShadow = shadowHitInfo.validHit && hit_dist < light_distance;
+            if(!shadowHitInfo.validHit || distToLight < distToHit) {
+                shadowColor += calc_lighting(rayDir, shadowray_direction, fragmentInfo.normal,
+                        geometry.specularColor, geometry.diffuseColor, geometry.shininess, light.color) / attenuation;
+            }
+        }
+        else if(light.type == LightType::DIRECTIONAL) {
+            glm::vec3 shadowray_direction = glm::normalize(light.position);
+            glm::vec3 shadowray_origin = fragmentInfo.position + sr.epsilonBias * shadowray_direction;
+            FragmentInfo shadowHitInfo = intersectScene(shadowray_origin, shadowray_direction, sr);
 
-            isInLight = !inShadow;
-
-			attenuation = light.attenuation[0]
-                        + light.attenuation[1] * light_distance
-                        + light.attenuation[2] * light_distance * light_distance;
-		}
-		else {
-			isInLight = !shadowHitInfo.validHit;
-		}
-
-        if(isInLight) {
-            // lambert shading .. first ...
-            // winkel zu Licht.
-            const float lambertShade =
-                    clamp(glm::dot(glm::normalize(shadowray_direction), fragmentInfo.normal));
-
-            glm::vec3 lambert = geometry.diffuseColor * light.color * lambertShade;
-            // phong
-            glm::vec3 halfvec = glm::normalize(glm::normalize(shadowray_direction) + glm::normalize(-rayDir));
-
-            const float phongShade =
-                    clamp(glm::dot(halfvec, fragmentInfo.normal));
-
-            const float shinePow = glm::pow(std::max(phongShade, 0.f), geometry.shininess);
-            glm::vec3 phong = geometry.specularColor * light.color * shinePow;
-
-
-            shadowColor += (lambert + phong) / attenuation;
+            if(!shadowHitInfo.validHit) {
+                shadowColor += calc_lighting(rayDir, shadowray_direction, fragmentInfo.normal,
+                        geometry.specularColor, geometry.diffuseColor, geometry.shininess, light.color);
+            }
         }
 	}
 
 	return clampRGB(shadowColor);
 }
+
 
 glm::vec3 trace(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sr, const float maxDepth = 5) {
 	FragmentInfo fragmentInfo = intersectScene(rayOrigin, glm::normalize(rayDir), sr);
@@ -369,9 +378,7 @@ void raytrace(std::string scenefilename) {
 		for(int x = 0; x < width; x++) {
 			glm::vec3 rayDir = sr.camera.getRayAt(x, y);
 
-				image.setAt(x, y,
-						trace(sr.camera.eye, rayDir, sr, 5)
-						);
+            image.setAt(x, y, trace(sr.camera.eye, rayDir, sr, 5));
 		}
 	}
 
@@ -399,8 +406,8 @@ int main() {
 //	raytrace("res/scene4-diffuse.test");
 //	raytrace("res/scene4-emission.test");
 //	raytrace("res/scene4-specular.test");
-//	raytrace("res/scene5.test");		// many spheres, 9 sec
-	raytrace("res/scene6.test");		// cornell box
+	raytrace("res/scene5.test");		// many spheres, 9 sec
+//	raytrace("res/scene6.test");		// cornell box
 //	raytrace("res/scene7.test");		// ~900 sec (15 min)
 	return 0;
 }
