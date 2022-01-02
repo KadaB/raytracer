@@ -14,11 +14,11 @@
 
 typedef unsigned char byte;
 
-float clamp(float val, float min = 0.0f, float max = 1.0f) {
-	return std::max(std::min(val, max), min);
+inline float clamp(float val, float min = 0.0f, float max = 1.0f) {
+	return glm::max(glm::min(val, max), min);
 }
 
-glm::vec3 clampRGB(glm::vec3 color) {
+inline glm::vec3 clampRGB(glm::vec3 color) {
 	return glm::vec3(clamp(color[0]), clamp(color[1]), clamp(color[2]));
 }
 
@@ -102,6 +102,9 @@ public:
 	}
 
 	// Draw test checker pattern
+	// examples:
+    //	  image.checker(16, glm::vec3(0.6f, 0.6f, 0.6f), glm::vec3(0.8f, 0.8f, 0.8f));
+    //    image.checker(16, glm::vec3(0, 0, 0), glm::vec3(0, 0, 0));
 	void checker(int patternSize,
 				 glm::vec3 colorA = glm::vec3(1, 0, 0),
 				 glm::vec3 colorB = glm::vec3(0, 1, 0)) {

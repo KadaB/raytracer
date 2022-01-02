@@ -13,92 +13,31 @@
 #include <string>
 #include <stack>
 
+#include "geometries.h"
+
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-struct Camera {
-	glm::vec3 eye;
-	glm::vec3 center;
-	glm::vec3 worldUp;
-	float fovDeg;		 // field of view in degrees
-
-	int width;
-	int height;
-
-	glm::vec3 u, v, w; // camera frame axes
-
-	// update/calculate camera frame axes
-	void updateAxes() {
-		glm::vec3 eyeDir = center - eye;
-		w = glm::normalize(-eyeDir);
-		u = glm::normalize(glm::cross(worldUp, w));
-		v = glm::normalize(glm::cross(w, u));
-	};
-
-	glm::vec3 getRayAt(int x, int y) {
-		float j = (float) x + 0.5;
-		float i = (float) y + 0.5;
-		const float aspect = (float) width / (float) height;
-		const float tany = glm::tan(fovDeg * glm::pi<float>() / 360.f); //conv to rad and half fovy
-		const float tanx = tany * aspect;
-		const float halfW = (float) width / 2.f;
-		const float halfH = (float) height / 2.f;
-
-		const float a = tanx * ((j - halfW) / halfW);
-		const float b = tany * ((halfH - i) / halfH);
-		return glm::normalize(a * u + b * v - w);
-	};
-};
-
-enum GeometryType {
-	TRIANGLE,
-	SPHERE,
-};
-
-enum LightType {
-	POINT,
-	DIRECTIONAL,
-};
-
-struct Light {
-	glm::vec3 position;
-	glm::vec3 color;
-	LightType type;
-	glm::vec3 attenuation;	//c0, c1, c2
-};
-
-struct IndexedGeometry {
-	GeometryType geometryType;
-	glm::vec3 ambientColor = glm::vec3(0, 0, 0);
-	glm::vec3 diffuseColor = glm::vec3(0, 0, 0);
-	glm::vec3 specularColor = glm::vec3(0, 0, 0);
-	glm::vec3 emissionColor = glm::vec3(0, 0, 0);
-	float shininess;
-
-	glm::mat4 transform;
-	glm::mat4 inverseTransform;
-	glm::mat3 inverseTransposeTransform;
-
-	int vertexIndices[3];
-
-	glm::vec3 position;
-	float radius;
-};
 
 struct SceneReader {
 	Camera camera;
 	std::vector<Light> lights;
 	std::vector<glm::vec3> vertices;
-	std::vector<IndexedGeometry> geometry;
+	std::vector<IIntersectable*> geometries;
 
 	// save all occurring material values, assign index to geometry
-
 
 	std::string outputFilename = "";
 
 	const float epsilonBias = 0.001f;
+
+	~SceneReader()  {
+		for(auto const& geometry_prt : geometries) {
+			delete geometry_prt;
+		}
+	};
 
 	void readScene(std::string filename) {
         glm::vec3 cur_diffuseColor(0, 0, 0);
@@ -160,40 +99,24 @@ struct SceneReader {
 				vertices.push_back(vertex);
 			}
 			else if(cmd == "tri") {
-				IndexedGeometry triangle;
-				// negative index allowed: no material entry
-				triangle.ambientColor = cur_ambientColor;
-				triangle.diffuseColor = cur_diffuseColor;
-				triangle.specularColor = cur_specularColor;
-				triangle.emissionColor = cur_emissionColor;
-				triangle.shininess = cur_shininessValue;
-				triangle.geometryType = GeometryType::TRIANGLE;
+				int indexA, indexB, indexC;
+				linestream >> indexA >> indexB >> indexC;
 
-				linestream >> triangle.vertexIndices[0] >> triangle.vertexIndices[1] >> triangle.vertexIndices[2];
+				Triangle *triangle = new Triangle(vertices[indexA], vertices[indexB], vertices[indexC],
+						Material(cur_ambientColor, cur_diffuseColor, cur_specularColor, cur_emissionColor, cur_shininessValue),
+						glm::mat4(transformStack.top()));
 
-				triangle.transform = glm::mat4(transformStack.top());
-				triangle.inverseTransform = glm::mat4(glm::inverse(transformStack.top()));
-				triangle.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(transformStack.top())));
-
-				geometry.push_back(triangle);
+				geometries.push_back(triangle);
 			}
 			else if(cmd == "sphere") {
-				IndexedGeometry sphere;
-				// negative index allowed: no material entry
-				sphere.ambientColor = cur_ambientColor;
-				sphere.diffuseColor = cur_diffuseColor;
-				sphere.specularColor = cur_specularColor;
-				sphere.emissionColor = cur_emissionColor;
-				sphere.shininess = cur_shininessValue;
-				sphere.geometryType = GeometryType::SPHERE;
+				glm::vec3 center;
+				float radius;
+				linestream >> center[0] >> center[1]>> center[2] >> radius;
+				Sphere *sphere = new Sphere(center, radius,
+						Material(cur_ambientColor, cur_diffuseColor, cur_specularColor, cur_emissionColor, cur_shininessValue),
+                        glm::mat4(transformStack.top()));
 
-				sphere.transform = glm::mat4(transformStack.top());
-				sphere.inverseTransform = glm::mat4(glm::inverse(transformStack.top()));
-				sphere.inverseTransposeTransform = glm::mat3(glm::transpose(glm::inverse(transformStack.top())));
-
-				linestream >> sphere.position[0] >> sphere.position[1]>> sphere.position[2] >> sphere.radius;
-
-				geometry.push_back(sphere);
+				geometries.push_back(sphere);
 			}
 			else if(cmd == "ambient") {
 				linestream >> cur_ambientColor[0] >> cur_ambientColor[1] >> cur_ambientColor[2];
@@ -245,14 +168,6 @@ struct SceneReader {
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands
-		}
-	}
-
-	void printGeomTransforms() {
-		for(int i = 0;i < geometry.size(); i++) {
-			IndexedGeometry geo = geometry[i];
-
-			std::cout << i << ": " << glm::to_string(geo.transform) << std::endl;
 		}
 	}
 };
