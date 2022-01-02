@@ -201,7 +201,8 @@ int main() {
 //	raytrace("res/scene4-emission.test");
 //	raytrace("res/scene4-specular.test");
 //	raytrace("res/scene5.test");		// many spheres, 9 sec
-	raytrace("res/scene6.test");		// cornell box
+//	raytrace("res/scene6.test");		// cornell box
 //	raytrace("res/scene7.test");		// ~900 sec (15 min)
+
 	return 0;
 }

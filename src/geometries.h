@@ -19,6 +19,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 float FLOAT_MAX = std::numeric_limits<float>::max();
+float FLOAT_MIN = std::numeric_limits<float>::min();
 inline float only_positive_scalar(float t) {
 	return t > 0 ? t : FLOAT_MAX;
 }
@@ -96,9 +97,9 @@ struct IIntersectable {
 	IIntersectable() {}
 	virtual ~IIntersectable() {};
 	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) = 0;
+	virtual std::pair<glm::vec3, glm::vec3> getExtends() = 0;
 
 	Material material;
-
 	glm::mat4 transform;
 };
 
@@ -145,6 +146,13 @@ public:
 
         return HitInfo();
 	};
+
+	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
+		glm::vec3 diagonal = glm::vec3(this->radius,this->radius,this->radius);
+		glm::vec3 start = this->center - diagonal;
+		glm::vec3 end = this->center + diagonal;
+		return std::pair<glm::vec3, glm::vec3> {start, end};
+	}
 };
 
 class Triangle : public IIntersectable {
@@ -197,6 +205,19 @@ public:
         }
         return HitInfo();
 	};
+
+	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
+		glm::vec3 start, end;
+		start.x = std::min({this->A.x, this->B.x, this->C.x});
+		start.y = std::min({this->A.y, this->B.y, this->C.y});
+		start.z = std::min({this->A.z, this->B.z, this->C.z});
+
+		end.x = std::max({this->A.x, this->B.x, this->C.x});
+		end.y = std::max({this->A.y, this->B.y, this->C.y});
+		end.z = std::max({this->A.z, this->B.z, this->C.z});
+
+		return std::pair<glm::vec3, glm::vec3> {start, end};
+	}
 };
 
 struct Camera {
