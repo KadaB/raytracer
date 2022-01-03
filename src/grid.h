@@ -290,9 +290,6 @@ class Grid : public IIntersectable {
 				index_z += iz_step;
 				tz_next += dt.z;
 			}
-			else {
-				std::cout << "wtf, should not happen" << std::endl;
-			}
 		}
 
 		return HitInfo();
