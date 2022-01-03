@@ -13,14 +13,40 @@
 
 #include<tuple>
 
-// erstmal anzeigen, wie eine box?
-class Grid : public IIntersectable {
-	glm::vec3 start_pos; // left, top = x_min, y_min, z_min
-	glm::vec3 end_pos; 	 // position + size x_max, y_max, z_max
-	glm::vec3 size; 	 // w, h, d
-	glm::vec3 resolution; // resolution
+class GridCell {
+	std::vector<IIntersectable*> geometries;		// cells of vectors
+private:
+public:
+	GridCell() {
+	};
+	~GridCell() { };
 
-	std::vector<IIntersectable*>* cells;		// cells of vectors
+	void add(IIntersectable* geometry_ptr) {
+		this->geometries.push_back(geometry_ptr);
+	};
+
+	virtual HitInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
+		// all geometries in cell get brute forced
+        HitInfo min_hitInfo;
+        for(auto const& geometry_ptr : this->geometries)  {
+            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
+
+            // has to be intersection at current cell
+            if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
+            	min_hitInfo = hitInfo;
+            }
+        }
+        return min_hitInfo;
+	};
+};
+
+class Grid : public IIntersectable {
+	glm::vec3 start_pos; // lowest bounds in aabb
+	glm::vec3 end_pos; 	 // highest bounds ind aabb
+	glm::vec3 size; 	 // w, h, d
+	glm::vec3 resolution;// grid resolution
+
+	GridCell* cells;		// cells of vectors
 
 	std::pair<glm::vec3, glm::vec3 > getSceneBounds(std::vector<IIntersectable*> *geometries_ptr) {
 		// get bounds
@@ -45,7 +71,7 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new std::vector<IIntersectable>[resolution.x * resolution.y * resolution.z];
+		cells = new GridCell[resolution.x * resolution.y * resolution.z];
 
 		for(auto const& geometry_ptr : geometries_ptr) {
             this->placeIntoGrid(geometry_ptr);
@@ -59,7 +85,7 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new std::vector<IIntersectable>[resolution.x * resolution.y * resolution.z];
+		cells = new GridCell[resolution.x * resolution.y * resolution.z];
 	}
 
 	~Grid() {
@@ -80,10 +106,10 @@ class Grid : public IIntersectable {
 
 	void placeIntoCell(int index_x, int index_y, int index_z, IIntersectable *geometry_ptr) {
 		auto offset = this->getOffsetAtIndices(index_x, index_y, index_z);
-		this->cells[offset].push_back(geometry_ptr);
+		this->cells[offset].add(geometry_ptr);
 	};
 
-	std::vector<IIntersectable>* getCellAtIndices(int index_x, int index_y, int index_z, IIntersectable *geometry_ptr) {
+	GridCell* getCellAtIndices(int index_x, int index_y, int index_z) {
 		auto offset = this->getOffsetAtIndices(index_x, index_y, index_z);
 		return &this->cells[offset];
 	};
@@ -104,7 +130,7 @@ class Grid : public IIntersectable {
 	};
 
 	// calculates intersection with grid bbox and returns cell strides for grid on rayDir for scalar t (dtx, dty, dtz)
-	std::tuple<bool, float, float, float> collidesWithBox(glm::vec3 rayOrigin, glm::vec3 rayDir) {
+	std::tuple<bool, float, glm::vec3, glm::vec3> collidesWithBox(glm::vec3 rayOrigin, glm::vec3 rayDir) {
 		const float epsilon = 0.0001;
 		// t.._start and t.._end are ray intersections with bounding box planes (axis aligned)
 		// division by zero supposedly treated as inf, -inf (IEEE floating point spec)
@@ -145,15 +171,135 @@ class Grid : public IIntersectable {
 		float t1 = std::min({tx_max, ty_max, tz_max});
 
 		// TODO: convenience calcs and returns
-		float dtx = (tx_max - tx_min) / this->resolution.x;
-		float dty = (ty_max - ty_min) / this->resolution.y;
-		float dtz = (tz_max - tz_min) / this->resolution.z;
+		glm::vec3 delta_t = glm::vec3 ( (tx_max - tx_min) / this->resolution.x,
+										(ty_max - ty_min) / this->resolution.y,
+										(tz_max - tz_min) / this->resolution.z);
+		glm::vec3 t_min = glm::vec3(tx_min, ty_min, tz_min);
 
-		return {t0 < t1 && t1 > epsilon, dtx, dty, dtz};
+		return {t0 < t1 && t1 > epsilon, t0, t_min, delta_t};
 	};
 
-	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) {
+	bool isInsideGrid(glm::vec3 position) {
+		if(position.x > this->start_pos.x && position.x < this->end_pos.x &&
+           position.y > this->start_pos.y && position.y < this->end_pos.y &&
+           position.z > this->start_pos.z && position.z < this->end_pos.z) {
+			return true;
+		}
+		return false;
+	}
+
+	HitInfo traverseGrid(glm::vec3 rayOrigin, glm::vec3 rayDir) {
+		auto [ isHit, t, t_mins, dt ] = this->collidesWithBox(rayOrigin, rayDir);
+
+		if(!isHit) {
+			return HitInfo();
+		}
+
+		glm::vec3 position;
+		if(this->isInsideGrid(rayOrigin)) {
+			position = rayOrigin;
+		}
+		else {
+			position = rayOrigin + t * rayDir;
+		}
+
+		auto [ index_x, index_y, index_z ] = this->getCellIndicesAtPosition(position);
+
+		float ix_step;
+		float ix_stop;
+		float tx_next;
+		if(rayDir.x > 0) {
+            ix_step = 1;
+            ix_stop = this->resolution.x;
+            float next_ix = index_x + 1;
+            tx_next = t_mins.x + next_ix * dt.x;
+		}
+		else if (rayDir.x < 0) {
+            ix_step = -1;
+            ix_stop = -1;
+            float next_ix = this->resolution.x - index_x;
+            tx_next = t_mins.x + next_ix * dt.x;
+		}
+		else {
+            ix_step = -1;
+            ix_stop = -1;
+            tx_next = FLOAT_MAX;
+		}
+
+		float iy_step;
+		float iy_stop;
+		float ty_next;
+		if(rayDir.y > 0) {
+            iy_step = 1;
+            iy_stop = this->resolution.y;
+            float next_iy = index_y + 1;
+            ty_next = t_mins.y + next_iy * dt.y;
+		}
+		else if (rayDir.y < 0) {
+            iy_step = -1;
+            iy_stop = -1;
+            float next_iy = this->resolution.y - index_y;
+            ty_next = t_mins.y + next_iy * dt.y;
+		}
+		else {
+            iy_step = -1;
+            iy_stop = -1;
+            ty_next = FLOAT_MAX;
+		}
+
+		float iz_step;
+		float iz_stop;
+		float tz_next;
+		if(rayDir.z > 0) {
+            iz_step = 1;
+            iz_stop = this->resolution.z;
+            float next_iz = index_z + 1;
+            tz_next = t_mins.z + next_iz * dt.z;
+		}
+		else if (rayDir.z < 0) {
+            iz_step = -1;
+            iz_stop = -1;
+            float next_iz = this->resolution.z - index_z;
+            tz_next = t_mins.z + next_iz * dt.z;
+		}
+		else {
+            iz_step = -1;
+            iz_stop = -1;
+            tz_next = FLOAT_MAX;
+		}
+
+		while(index_x != ix_stop && index_y != iy_stop && index_z != iz_stop) {
+			float t_next_min = std::min({tx_next, ty_next, tz_next}); // readability/convenience
+
+			auto cell = this->getCellAtIndices(index_x, index_y, index_z);
+			auto hitInfo = cell->intersect(rayOrigin, rayDir, t_next_min);
+
+			if(hitInfo.validHit) {
+				return hitInfo;
+			}
+
+			if(t_next_min == tx_next) {
+				index_x += ix_step;
+				tx_next += dt.x;
+			}
+			else if(t_next_min == ty_next) {
+				index_y += iy_step;
+				ty_next += dt.y;
+			}
+			else if(t_next_min == tz_next) {
+				index_z += iz_step;
+				tz_next += dt.z;
+			}
+			else {
+				std::cout << "wtf, should not happen" << std::endl;
+			}
+		}
+
 		return HitInfo();
+	}
+
+	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) {
+		return this->traverseGrid(O, rayDir);
 	};
 
 	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
