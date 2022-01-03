@@ -14,14 +14,14 @@
 #include<tuple>
 
 class GridCell {
-	std::vector<IIntersectable*> geometries;		// cells of vectors
+	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
 private:
 public:
 	GridCell() {
 	};
 	~GridCell() { };
 
-	void add(IIntersectable* geometry_ptr) {
+	void add(ITransformedIntersectable* geometry_ptr) {
 		this->geometries.push_back(geometry_ptr);
 	};
 
@@ -46,9 +46,9 @@ class Grid : public IIntersectable {
 	glm::vec3 size; 	 // w, h, d
 	glm::vec3 resolution;// grid resolution
 
-	GridCell* cells;		// cells of vectors
+	std::unique_ptr<GridCell[]> cells;		// cells of vectors
 
-	std::pair<glm::vec3, glm::vec3 > getSceneBounds(std::vector<IIntersectable*> *geometries_ptr) {
+	std::pair<glm::vec3, glm::vec3 > getSceneBounds(std::vector<ITransformedIntersectable*> *geometries_ptr) {
 		// get bounds
 		glm::vec3 min_start = glm::vec3(1, 1, 1) * FLOAT_MAX;
 		glm::vec3 max_end = glm::vec3(1, 1, 1) * FLOAT_MIN;
@@ -63,7 +63,7 @@ class Grid : public IIntersectable {
 		return std::pair<glm::vec3, glm::vec3> {min_start - epsilon_vec, max_end + epsilon_vec};
 	}
 
-	Grid(std::vector<IIntersectable*> *geometries_ptr) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
+	Grid(std::vector<ITransformedIntersectable*> *geometries_ptr) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
 		glm::vec3 resolution = glm::vec3(5, 5, 5);
 		auto [start, end] = this->getSceneBounds(geometries_ptr);
 		this->start_pos = start;
@@ -71,7 +71,7 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new GridCell[int(resolution.x) * int(resolution.y) * int(resolution.z)];
+		cells = std::make_unique<GridCell[]>(int(resolution.x) * int(resolution.y) * int(resolution.z));
 
 		for(auto const& geometry_ptr : *geometries_ptr) {
             this->placeIntoGrid(geometry_ptr);
@@ -85,12 +85,10 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new GridCell[int(resolution.x) * int(resolution.y) * int(resolution.z)];
+		cells = std::make_unique<GridCell[]>(int(resolution.x) * int(resolution.y) * int(resolution.z));
 	}
 
-	~Grid() {
-		delete cells;
-	}
+	~Grid() { }
 
 	inline std::tuple<int, int, int> getCellIndicesAtPosition(glm::vec3 position) {
 		int ix = clamp(glm::floor(position.x - start_pos.x) * resolution.x / size.x, 0, resolution.x - 1);
@@ -104,18 +102,18 @@ class Grid : public IIntersectable {
 		return index_x + this->resolution.x * index_y + this->resolution.y * this->resolution.x * index_z;
 	};
 
-	void placeIntoCell(int index_x, int index_y, int index_z, IIntersectable *geometry_ptr) {
+	void placeIntoCell(int index_x, int index_y, int index_z, ITransformedIntersectable *geometry_ptr) {
 		auto offset = this->getOffsetAtIndices(index_x, index_y, index_z);
-		this->cells[offset].add(geometry_ptr);
+		this->cells.get()[offset].add(geometry_ptr);
 	};
 
 	GridCell* getCellAtIndices(int index_x, int index_y, int index_z) {
 		auto offset = this->getOffsetAtIndices(index_x, index_y, index_z);
-		return &this->cells[offset];
+		return &this->cells.get()[offset];
 	};
 
 	// Places geometry into grid cells. Extends won't be changed and should already exist.
-	void placeIntoGrid(IIntersectable *geometry_ptr)  {
+	void placeIntoGrid(ITransformedIntersectable *geometry_ptr)  {
 		auto [start, end] = geometry_ptr->getExtends();
 		auto [ix_min, iy_min, iz_min] = this->getCellIndicesAtPosition(start);
 		auto [ix_max, iy_max, iz_max]= this->getCellIndicesAtPosition(end);

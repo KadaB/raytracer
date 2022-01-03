@@ -92,10 +92,15 @@ struct FragmentInfo {
 	}
 };
 
-
 struct IIntersectable {
 	IIntersectable() {}
 	virtual ~IIntersectable() {};
+	virtual FragmentInfo intersect(glm::vec3 O, glm::vec3 D) = 0;
+};
+
+struct ITransformedIntersectable {
+	ITransformedIntersectable() {}
+	virtual ~ITransformedIntersectable() {};
 	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) = 0;
 	virtual std::pair<glm::vec3, glm::vec3> getExtends() = 0;
 
@@ -103,7 +108,7 @@ struct IIntersectable {
 	glm::mat4 transform;
 };
 
-class Sphere : public IIntersectable {
+class Sphere : public ITransformedIntersectable {
 private:
 	glm::vec3 center;
 	float radius;
@@ -155,7 +160,7 @@ public:
 	}
 };
 
-class Triangle : public IIntersectable {
+class Triangle : public ITransformedIntersectable {
 private:
 	glm::vec3 A, B, C;	// 3 vertices of a triangle
 

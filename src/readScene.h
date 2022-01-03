@@ -22,13 +22,42 @@
 #include <glm/gtx/string_cast.hpp>
 
 
+class PrimitivesGroup : public IIntersectable {
+	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
+private:
+public:
+	PrimitivesGroup(std::vector<ITransformedIntersectable*> *geometries_ptr) {
+	};
+	~PrimitivesGroup() { };
+
+	void add(ITransformedIntersectable* geometry_ptr) {
+		this->geometries.push_back(geometry_ptr);
+	};
+
+	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
+		// all geometries in cell get brute forced
+        HitInfo min_hitInfo;
+        for(auto const& geometry_ptr : this->geometries)  {
+            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
+
+            // has to be intersection at current cell
+            if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
+            	min_hitInfo = hitInfo;
+            }
+        }
+        return min_hitInfo;
+	};
+};
+
 struct SceneReader {
 	Camera camera;
 	std::vector<Light> lights;
 	std::vector<glm::vec3> vertices;
-	std::vector<IIntersectable*> geometries;
+	std::vector<ITransformedIntersectable*> geometries;
 
-	// save all occurring material values, assign index to geometry
+	// this is a member that points to either a PrimitiveGroup that gets brute force intersected 
+	// or a Grid structure
+	std::unique_ptr<IIntersectable> scene_content;
 
 	std::string outputFilename = "";
 
@@ -40,7 +69,7 @@ struct SceneReader {
 		}
 	};
 
-	void readScene(std::string filename) {
+	void readScene(std::string filename, bool useGrid) {
         glm::vec3 cur_diffuseColor(0, 0, 0);
         glm::vec3 cur_ambientColor(0, 0, 0);
         glm::vec3 cur_specularColor(0, 0, 0);
@@ -169,6 +198,13 @@ struct SceneReader {
 			}
 //			on (cmd[0] == '#'|| cmd.empty()) do nothing
 //			ignore unrecognized commands
+		}
+
+		if(useGrid) {
+			this->scene_content = std::make_unique<Grid>(&geometries);
+		}
+		else {
+			this->scene_content = std::make_unique<PrimitiveGroup>(&geometries);
 		}
 	}
 };
