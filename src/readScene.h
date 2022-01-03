@@ -14,6 +14,7 @@
 #include <stack>
 
 #include "geometries.h"
+#include "grid.h"
 
 #include <glm/glm.hpp>
 #define GLM_ENABLE_EXPERIMENTAL

@@ -71,9 +71,9 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new GridCell[resolution.x * resolution.y * resolution.z];
+		cells = new GridCell[int(resolution.x) * int(resolution.y) * int(resolution.z)];
 
-		for(auto const& geometry_ptr : geometries_ptr) {
+		for(auto const& geometry_ptr : *geometries_ptr) {
             this->placeIntoGrid(geometry_ptr);
 		}
 	}
@@ -85,7 +85,7 @@ class Grid : public IIntersectable {
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = new GridCell[resolution.x * resolution.y * resolution.z];
+		cells = new GridCell[int(resolution.x) * int(resolution.y) * int(resolution.z)];
 	}
 
 	~Grid() {
@@ -97,7 +97,7 @@ class Grid : public IIntersectable {
 		int iy = clamp(glm::floor(position.y - start_pos.y) * resolution.y / size.y, 0, resolution.y - 1);
 		int iz = clamp(glm::floor(position.z - start_pos.z) * resolution.z / size.z, 0, resolution.z - 1);
 
-		return ix, iy, iz;
+		return {ix, iy, iz};
 	};
 
 	inline int getOffsetAtIndices(int index_x, int index_y, int index_z) {
@@ -299,7 +299,7 @@ class Grid : public IIntersectable {
 	}
 
 	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) {
-		return this->traverseGrid(O, rayDir);
+		return this->traverseGrid(O, D);
 	};
 
 	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
