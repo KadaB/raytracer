@@ -30,7 +30,10 @@ public:
         HitInfo min_hitInfo;
         ITransformedIntersectable *min_geometry_ptr;
         for(auto const& geometry_ptr : this->geometries)  {
-            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
+            const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
+            glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
+
+            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
 
             // has to be intersection at current cell
             if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
@@ -87,16 +90,6 @@ public:
 		for(auto const& geometry_ptr : *geometries_ptr) {
             this->placeIntoGrid(geometry_ptr);
 		}
-	}
-
-	Grid(glm::vec3 start, glm::vec3 end) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
-		glm::vec3 resolution = glm::vec3(5, 5, 5);
-		this->start_pos = start;
-		this->end_pos = end;
-		this->size = end - start;
-		this->resolution = resolution;
-
-		cells = std::make_unique<GridCell[]>(int(resolution.x) * int(resolution.y) * int(resolution.z));
 	}
 
 	~Grid() { }

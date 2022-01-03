@@ -41,7 +41,10 @@ public:
         HitInfo min_hitInfo;
         ITransformedIntersectable *min_geometry_ptf;
         for(auto const& geometry_ptr : this->geometries)  {
-            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
+
+            const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
+            glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
+            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
 
             // has to be intersection at current cell
             if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {

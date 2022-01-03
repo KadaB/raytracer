@@ -28,35 +28,7 @@ using namespace std;
 using namespace glm;
 
 FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
-	HitInfo min_hitInfo;
-	ITransformedIntersectable *min_geometry;
-
-	for(auto const& geometry_ptr : sceneReader.geometries) {
-		// origin and ray into inverse object space(_os)
-		const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
-		glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
-
-		HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
-        if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {
-            min_hitInfo = hitInfo;
-            min_geometry = geometry_ptr;
-		}
-	}
-
-	if(min_hitInfo.validHit) {
-		FragmentInfo fragmentInfo;
-		fragmentInfo.validHit = true;
-		fragmentInfo.t = min_hitInfo.t;
-		fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
-		fragmentInfo.normal = normalTransform(min_geometry->transform, min_hitInfo.normal);
-		fragmentInfo.material = min_hitInfo.material;
-		return fragmentInfo;
-	}
-	else {
-		return FragmentInfo();
-	}
-
-//	return sceneReader.scene_content->intersect(rayOrigin, rayDir);
+	return sceneReader.scene_content->intersect(rayOrigin, rayDir);
 }
 
 inline glm::vec3 calc_lighting(glm::vec3 rayDir, glm::vec3 shadowray_direction, glm::vec3 fragmentNormal,

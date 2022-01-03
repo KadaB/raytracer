@@ -24,6 +24,17 @@ inline float only_positive_scalar(float t) {
 	return t > 0 ? t : FLOAT_MAX;
 }
 
+glm::vec3 normalTransform(glm::mat4 transform, glm::vec3 vector) {
+	return glm::normalize(glm::vec3(glm::transpose(glm::inverse(transform)) * glm::vec4(vector, 0)));
+}
+glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(transform * glm::vec4(vector, 1));
+}
+// w=0
+glm::vec3 transformDirection(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(transform * glm::vec4(vector, 0));
+}
+
 struct Material {
 	glm::vec3 ambientColor;
 	glm::vec3 diffuseColor;
@@ -85,7 +96,7 @@ struct FragmentInfo {
 	// convenience constructor
 	FragmentInfo(bool validHit, float t, glm::vec3 position, glm::vec3 normal, Material *material) : FragmentInfo() {
         this->validHit = t > 0 ? validHit : false;
-        this->t = t;
+        this->t = only_positive_scalar(t);
         this->position = position;
         this->normal = normal;
         this->material = material;
@@ -106,18 +117,30 @@ struct ITransformedIntersectable {
 
 	Material material;
 	glm::mat4 transform;
+
+	std::pair<glm::vec3, glm::vec3> boundingBoxOfTransformedBoundingBox(glm::vec3 start, glm::vec3 end) {
+		auto points = {
+             glm::vec3(start.x, start.y, start.z),
+             glm::vec3(start.x, start.y, end.z),
+             glm::vec3(start.x, end.y, start.z),
+             glm::vec3(end.x, start.y, start.z),
+             glm::vec3(end.x, end.y, end.z),
+             glm::vec3(end.x, end.y, start.z),
+             glm::vec3(end.x, start.y, end.z),
+             glm::vec3(start.x, end.y, end.z) };
+
+		glm::vec3 min_start = glm::vec3(1, 1, 1) * FLOAT_MAX;
+		glm::vec3 max_end = glm::vec3(1, 1, 1) * FLOAT_MIN;
+		for(auto point : points) {
+			auto p = transformPoint(this->transform, point);
+			min_start = glm::min(min_start, p);
+			max_end = glm::max(max_end, p);
+		}
+
+		return {min_start, max_end};
+	};
 };
 
-glm::vec3 normalTransform(glm::mat4 transform, glm::vec3 vector) {
-	return glm::normalize(glm::vec3(glm::transpose(glm::inverse(transform)) * glm::vec4(vector, 0)));
-}
-glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
-	return glm::vec3(transform * glm::vec4(vector, 1));
-}
-// w=0
-glm::vec3 transformDirection(glm::mat4 transform, glm::vec3 vector) {
-	return glm::vec3(transform * glm::vec4(vector, 0));
-}
 
 class Sphere : public ITransformedIntersectable {
 private:
@@ -167,7 +190,8 @@ public:
 		glm::vec3 diagonal = glm::vec3(this->radius,this->radius,this->radius);
 		glm::vec3 start = this->center - diagonal;
 		glm::vec3 end = this->center + diagonal;
-		return std::pair<glm::vec3, glm::vec3> {start, end};
+
+		return this->boundingBoxOfTransformedBoundingBox(start, end);
 	}
 };
 
@@ -223,16 +247,10 @@ public:
 	};
 
 	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
-		glm::vec3 start, end;
-		start.x = std::min({this->A.x, this->B.x, this->C.x});
-		start.y = std::min({this->A.y, this->B.y, this->C.y});
-		start.z = std::min({this->A.z, this->B.z, this->C.z});
+		auto start = glm::min(glm::min(A, B), C);
+		auto end = glm::max(glm::max(A, B), C);
 
-		end.x = std::max({this->A.x, this->B.x, this->C.x});
-		end.y = std::max({this->A.y, this->B.y, this->C.y});
-		end.z = std::max({this->A.z, this->B.z, this->C.z});
-
-		return std::pair<glm::vec3, glm::vec3> {start, end};
+		return this->boundingBoxOfTransformedBoundingBox(start, end);
 	}
 };
 
