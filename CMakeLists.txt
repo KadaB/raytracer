@@ -15,6 +15,11 @@ add_executable(${PROJECT_NAME} ${source_files})
 include_directories(${OpenCV_INCLUDES})
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} OpenMP::OpenMP_CXX)
 
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # resources
 # copy all resource files in res into build dir
 #file(COPY "${PROJECT_SOURCE_DIR}/res" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

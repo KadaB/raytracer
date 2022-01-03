@@ -40,7 +40,7 @@ glm::vec3 transformDirection(glm::mat4 transform, glm::vec3 vector) {
 
 FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	HitInfo min_hitInfo;
-	IIntersectable *min_geometry;
+	ITransformedIntersectable *min_geometry;
 
 	for(auto const& geometry_ptr : sceneReader.geometries) {
 		// origin and ray into inverse object space(_os)

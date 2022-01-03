@@ -69,7 +69,7 @@ struct SceneReader {
 		}
 	};
 
-	void readScene(std::string filename, bool useGrid) {
+	void readScene(std::string filename, bool useGrid = false) {
         glm::vec3 cur_diffuseColor(0, 0, 0);
         glm::vec3 cur_ambientColor(0, 0, 0);
         glm::vec3 cur_specularColor(0, 0, 0);
@@ -204,7 +204,7 @@ struct SceneReader {
 			this->scene_content = std::make_unique<Grid>(&geometries);
 		}
 		else {
-			this->scene_content = std::make_unique<PrimitiveGroup>(&geometries);
+			this->scene_content = std::make_unique<PrimitivesGroup>(&geometries);
 		}
 	}
 };
