@@ -108,6 +108,17 @@ struct ITransformedIntersectable {
 	glm::mat4 transform;
 };
 
+glm::vec3 normalTransform(glm::mat4 transform, glm::vec3 vector) {
+	return glm::normalize(glm::vec3(glm::transpose(glm::inverse(transform)) * glm::vec4(vector, 0)));
+}
+glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(transform * glm::vec4(vector, 1));
+}
+// w=0
+glm::vec3 transformDirection(glm::mat4 transform, glm::vec3 vector) {
+	return glm::vec3(transform * glm::vec4(vector, 0));
+}
+
 class Sphere : public ITransformedIntersectable {
 private:
 	glm::vec3 center;

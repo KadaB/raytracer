@@ -24,9 +24,11 @@
 
 class PrimitivesGroup : public IIntersectable {
 	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
-private:
 public:
 	PrimitivesGroup(std::vector<ITransformedIntersectable*> *geometries_ptr) {
+		for(auto const& geometry_ptr : *geometries_ptr) {
+			this->add(geometry_ptr);
+        }
 	};
 	~PrimitivesGroup() { };
 
@@ -34,18 +36,27 @@ public:
 		this->geometries.push_back(geometry_ptr);
 	};
 
-	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
+	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir) {
 		// all geometries in cell get brute forced
         HitInfo min_hitInfo;
+        ITransformedIntersectable *min_geometry_ptf;
         for(auto const& geometry_ptr : this->geometries)  {
             HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
 
             // has to be intersection at current cell
-            if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
+            if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {
             	min_hitInfo = hitInfo;
+            	min_geometry_ptf = geometry_ptr;
             }
         }
-        return min_hitInfo;
+
+        if(min_hitInfo.validHit) {
+        	return FragmentInfo(true, min_hitInfo.t,
+        			rayOrigin + min_hitInfo.t * rayDir,
+					normalTransform(min_geometry_ptf->transform, min_hitInfo.normal),
+					min_hitInfo.material);
+        }
+        return FragmentInfo();
 	};
 };
 

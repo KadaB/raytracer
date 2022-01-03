@@ -69,9 +69,9 @@ public:
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				glm::vec3 color = getAt(x, y);
-				std::byte r = (std::byte) (clamp(color[0]) * 255);
-				std::byte g = (std::byte) (clamp(color[1]) * 255);
-				std::byte b = (std::byte) (clamp(color[2]) * 255);
+				unsigned char r = (unsigned char) (clamp(color[0]) * 255);
+				unsigned char g = (unsigned char) (clamp(color[1]) * 255);
+				unsigned char b = (unsigned char) (clamp(color[2]) * 255);
 				ofs << r << g << b;
 			}
 		}
@@ -151,18 +151,18 @@ private:
 		return buffer_ptr;
 	}
 
-	std::unique_ptr<std::byte[]> get_3b_bgr_buffer() {
-		auto buffer_ptr = std::make_unique<byte[]>(width * height * 3);
-		byte *buffer = buffer_ptr.get();
+	std::unique_ptr<unsigned char[]> get_3b_bgr_buffer() {
+		auto buffer_ptr = std::make_unique<unsigned char[]>(width * height * 3);
+		unsigned char *buffer = buffer_ptr.get();
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				glm::vec3 color = getAt(x, y);
 				int offset = (y * width + x) * 3;
 
-				buffer[offset]  = (std::byte) (clamp(color[2]) * 255);
-				buffer[offset+1]= (std::byte) (clamp(color[1]) * 255);
-				buffer[offset+2]= (std::byte) (clamp(color[0]) * 255);
+				buffer[offset]  = (unsigned char) (clamp(color[2]) * 255);
+				buffer[offset+1]= (unsigned char) (clamp(color[1]) * 255);
+				buffer[offset+2]= (unsigned char) (clamp(color[0]) * 255);
 			}
 		}
 

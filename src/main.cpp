@@ -27,17 +27,6 @@
 using namespace std;
 using namespace glm;
 
-glm::vec3 normalTransform(glm::mat4 transform, glm::vec3 vector) {
-	return glm::normalize(glm::vec3(glm::transpose(glm::inverse(transform)) * glm::vec4(vector, 0)));
-}
-glm::vec3 transformPoint(glm::mat4 transform, glm::vec3 vector) {
-	return glm::vec3(transform * glm::vec4(vector, 1));
-}
-// w=0
-glm::vec3 transformDirection(glm::mat4 transform, glm::vec3 vector) {
-	return glm::vec3(transform * glm::vec4(vector, 0));
-}
-
 FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	HitInfo min_hitInfo;
 	ITransformedIntersectable *min_geometry;
@@ -66,6 +55,8 @@ FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &
 	else {
 		return FragmentInfo();
 	}
+
+//	return sceneReader.scene_content->intersect(rayOrigin, rayDir);
 }
 
 inline glm::vec3 calc_lighting(glm::vec3 rayDir, glm::vec3 shadowray_direction, glm::vec3 fragmentNormal,

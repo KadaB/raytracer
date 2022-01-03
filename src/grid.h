@@ -25,18 +25,27 @@ public:
 		this->geometries.push_back(geometry_ptr);
 	};
 
-	virtual HitInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
+	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
 		// all geometries in cell get brute forced
         HitInfo min_hitInfo;
+        ITransformedIntersectable *min_geometry_ptr;
         for(auto const& geometry_ptr : this->geometries)  {
             HitInfo hitInfo = geometry_ptr->intersect(rayOrigin, rayDir);
 
             // has to be intersection at current cell
             if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
             	min_hitInfo = hitInfo;
+            	min_geometry_ptr = geometry_ptr;
             }
         }
-        return min_hitInfo;
+
+        if(min_hitInfo.validHit) {
+        	return FragmentInfo(true, min_hitInfo.t,
+        			rayOrigin + min_hitInfo.t * rayDir,
+					normalTransform(min_geometry_ptr->transform, min_hitInfo.normal),
+					min_hitInfo.material);
+        }
+        return FragmentInfo();
 	};
 };
 
@@ -47,6 +56,8 @@ class Grid : public IIntersectable {
 	glm::vec3 resolution;// grid resolution
 
 	std::unique_ptr<GridCell[]> cells;		// cells of vectors
+
+public:
 
 	std::pair<glm::vec3, glm::vec3 > getSceneBounds(std::vector<ITransformedIntersectable*> *geometries_ptr) {
 		// get bounds
@@ -186,11 +197,11 @@ class Grid : public IIntersectable {
 		return false;
 	}
 
-	HitInfo traverseGrid(glm::vec3 rayOrigin, glm::vec3 rayDir) {
+	FragmentInfo traverseGrid(glm::vec3 rayOrigin, glm::vec3 rayDir) {
 		auto [ isHit, t, t_mins, dt ] = this->collidesWithBox(rayOrigin, rayDir);
 
 		if(!isHit) {
-			return HitInfo();
+			return FragmentInfo();
 		}
 
 		glm::vec3 position;
@@ -269,11 +280,11 @@ class Grid : public IIntersectable {
 		while(index_x != ix_stop && index_y != iy_stop && index_z != iz_stop) {
 			float t_next_min = std::min({tx_next, ty_next, tz_next}); // readability/convenience
 
-			auto cell = this->getCellAtIndices(index_x, index_y, index_z);
-			auto hitInfo = cell->intersect(rayOrigin, rayDir, t_next_min);
+			GridCell *cell = this->getCellAtIndices(index_x, index_y, index_z);
+			FragmentInfo fragmentInfo = cell->intersect(rayOrigin, rayDir, t_next_min);
 
-			if(hitInfo.validHit) {
-				return hitInfo;
+			if(fragmentInfo.validHit) {
+				return fragmentInfo;
 			}
 
 			if(t_next_min == tx_next) {
@@ -290,10 +301,10 @@ class Grid : public IIntersectable {
 			}
 		}
 
-		return HitInfo();
+		return FragmentInfo();
 	}
 
-	virtual HitInfo intersect(glm::vec3 O, glm::vec3 D) {
+	virtual FragmentInfo intersect(glm::vec3 O, glm::vec3 D) {
 		return this->traverseGrid(O, D);
 	};
 

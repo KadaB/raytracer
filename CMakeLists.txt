@@ -22,4 +22,4 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 # resources
 # copy all resource files in res into build dir
-#file(COPY "${PROJECT_SOURCE_DIR}/res" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "${PROJECT_SOURCE_DIR}/res" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
