@@ -94,9 +94,10 @@ glm::vec3 shadowRayTest(FragmentInfo fragmentInfo, glm::vec3 rayDir, SceneReader
             glm::vec3 shadowray_direction = glm::normalize(light.position - fragmentInfo.position);
             glm::vec3 shadowray_origin = fragmentInfo.position + sr.epsilonBias * shadowray_direction;
             FragmentInfo shadowHitInfo = intersectScene(shadowray_origin, shadowray_direction, sr);
+
 //            float distToLight = glm::length(light.position - fragmentInfo.position);
 //            float distToHit = glm::length(shadowHitInfo.position - fragmentInfo.position);
-            // TODO: quality check!
+
             float distToLight = glm::dot(light.position - fragmentInfo.position, shadowray_direction);
             float distToHit = shadowHitInfo.t;
 
@@ -181,7 +182,7 @@ void raytrace(std::string scenefilename) {
 	std::cout << "finished raytracing after " << elapsed.count() << " seconds" << std::endl;
 
 	int k = image.display(0);
-//	std::cout << "last keycode pressed: " << k << std::endl;
+
 	if(k == 10 || !sr.outputFilename.empty()) {
 		std::string filename =
 				sr.outputFilename.empty() ? "raytrace.png" :  sr.outputFilename;
@@ -195,14 +196,13 @@ int main() {
 //	raytrace("res/scene2.test");			// Würfel
 //	raytrace("res/scene3.test");			// table
 
-// (Unit3 alt, HW1 neu)
 //	raytrace("res/scene4-ambient.test");	// table
 //	raytrace("res/scene4-diffuse.test");
 //	raytrace("res/scene4-emission.test");
 //	raytrace("res/scene4-specular.test");
-//	raytrace("res/scene5.test");		// many spheres, 9 sec
-//	raytrace("res/scene6.test");		// cornell box
-//	raytrace("res/scene7.test");		// ~900 sec (15 min)
+//	raytrace("res/scene5.test");		// many spheres
+	raytrace("res/scene6.test");		// cornell box
+//	raytrace("res/scene7.test");		// dragon
 
 	return 0;
 }

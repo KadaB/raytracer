@@ -120,47 +120,24 @@ public:
 		}
 	}
 
-//	// p6!
-//	// https://www.scratchapixel.com/lessons/digital-imaging/simple-image-manipulations
-//	bool loadPpm(string filename) {
-//		std::ifstream ifs;
-//
-//		ifs.open(filename, std::ios::binary);
-//
-//		if (ifs.fail) {
-//			cout << "could not read file: " << filename << endl;
-//			return false;
-//		}
-//
-//		std::string header;
-//		ifs >> header;
-//		if (header.compare(ppmHeader) != 0) {
-//			cout << "PPM header not recognized or not supported version: " << header << endl;
-//			return false;
-//		}
-//
-//		int imageWidth, imageHeight, colVals;
-//		ifs >> imageWidth >> imageHeight >> colVals;
-//
-//	}
-
 	int display(int ms) {
-		std::unique_ptr<float> buffer(get_3f_bgr_buffer());
+		auto buffer = get_3f_bgr_buffer();
 		cv::Mat flt_img(height, width, CV_32FC3, buffer.get()); /* Red Green Blue Alpha (RGBA) channels from the sdl surface */
 		cv::imshow("Display ", flt_img);
 		return cv::waitKey(ms);
 	}
 
 	void save(std::string filename) {
-		std::unique_ptr<byte> buffer(get_3b_bgr_buffer());
+		auto buffer = get_3b_bgr_buffer();
 		cv::Mat flt_img(height, width, CV_8UC3, buffer.get()); /* Red Green Blue Alpha (RGBA) channels from the sdl surface */
 		cv::imwrite(filename, flt_img);
 		std::cout << "Written to: " << filename << std::endl;
 	}
 
 private:
-	float* get_3f_bgr_buffer() {
-		float *buffer = new float[width * height * 3];
+	std::unique_ptr<float[]> get_3f_bgr_buffer() {
+		auto buffer_ptr = std::make_unique<float[]>(width * height * 3);
+		float *buffer = buffer_ptr.get();
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
@@ -173,11 +150,12 @@ private:
 			}
 		}
 
-		return buffer;
+		return buffer_ptr;
 	}
 
-	byte* get_3b_bgr_buffer() {
-		byte *buffer = new byte[width * height * 3];
+	std::unique_ptr<byte[]> get_3b_bgr_buffer() {
+		auto buffer_ptr = std::make_unique<byte[]>(width * height * 3);
+		byte *buffer = buffer_ptr.get();
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
@@ -190,7 +168,7 @@ private:
 			}
 		}
 
-		return buffer;
+		return buffer_ptr;
 	}
 };
 
