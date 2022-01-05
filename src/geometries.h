@@ -87,7 +87,7 @@ struct FragmentInfo {
 
 	FragmentInfo() {
         this->validHit = false;
-        this->t = 0;
+        this->t = FLOAT_MAX;
         this->position = glm::vec3();
         this->normal = glm::vec3();
         this->material = NULL;
@@ -118,20 +118,34 @@ struct ITransformedIntersectable {
 	Material material;
 	glm::mat4 transform;
 
+	// get all 8 corners from bounding box definition start, end
+	std::array<glm::vec3, 8> eightCornersFromBoundingBox(glm::vec3 start, glm::vec3 end) {
+		glm::vec3 vecs[2] = {start, end};
+		std::array<glm::vec3, 8> eight_corners;
+
+		// pick components either from start or end in all combinations
+		for(int i = 0; i < 8; i++) {
+			int a = (i / 1) % 2, b = (i / 2) % 2, c = (i / 4) % 2;
+			eight_corners[i] = glm::vec3(vecs[a].x, vecs[b].y, vecs[c].z);
+		}
+
+		return eight_corners;
+	}
+
 	std::pair<glm::vec3, glm::vec3> boundingBoxOfTransformedBoundingBox(glm::vec3 start, glm::vec3 end) {
-		auto points = {
-             glm::vec3(start.x, start.y, start.z),
-             glm::vec3(start.x, start.y, end.z),
-             glm::vec3(start.x, end.y, start.z),
-             glm::vec3(end.x, start.y, start.z),
-             glm::vec3(end.x, end.y, end.z),
-             glm::vec3(end.x, end.y, start.z),
-             glm::vec3(end.x, start.y, end.z),
-             glm::vec3(start.x, end.y, end.z) };
+		// auto points = {
+        //      glm::vec3(start.x, start.y, start.z),
+        //      glm::vec3(start.x, start.y, end.z),
+        //      glm::vec3(start.x, end.y, start.z),
+        //      glm::vec3(end.x, start.y, start.z),
+        //      glm::vec3(end.x, end.y, end.z),
+        //      glm::vec3(end.x, end.y, start.z),
+        //      glm::vec3(end.x, start.y, end.z),
+        //      glm::vec3(start.x, end.y, end.z) };
 
 		glm::vec3 min_start = glm::vec3(1, 1, 1) * FLOAT_MAX;
 		glm::vec3 max_end = glm::vec3(1, 1, 1) * FLOAT_MIN;
-		for(auto point : points) {
+		for(auto point : this->eightCornersFromBoundingBox(start, end)) {
 			auto p = transformPoint(this->transform, point);
 			min_start = glm::min(min_start, p);
 			max_end = glm::max(max_end, p);

@@ -27,10 +27,39 @@
 using namespace std;
 using namespace glm;
 
-FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
+FragmentInfo intersectScene2(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	return sceneReader.scene_content->intersect(rayOrigin, rayDir);
 }
 
+FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
+	HitInfo min_hitInfo;
+	ITransformedIntersectable *min_geometry;
+
+	for(auto const& geometry_ptr : sceneReader.geometries) {
+		// origin and ray into inverse object space(_os)
+		const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
+		glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
+
+		HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
+        if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {
+            min_hitInfo = hitInfo;
+            min_geometry = geometry_ptr;
+		}
+	}
+
+	if(min_hitInfo.validHit) {
+		FragmentInfo fragmentInfo;
+		fragmentInfo.validHit = true;
+		fragmentInfo.t = min_hitInfo.t;
+		fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
+		fragmentInfo.normal = normalTransform(min_geometry->transform, min_hitInfo.normal);
+		fragmentInfo.material = min_hitInfo.material;
+		return fragmentInfo;
+	}
+	else {
+		return FragmentInfo();
+	}
+}
 inline glm::vec3 calc_lighting(glm::vec3 rayDir, glm::vec3 shadowray_direction, glm::vec3 fragmentNormal,
 		Material *material, glm::vec3 lightColor) {
     // lambert shading
@@ -58,11 +87,11 @@ glm::vec3 shadowRayTest(FragmentInfo fragmentInfo, glm::vec3 rayDir, SceneReader
             glm::vec3 shadowray_origin = fragmentInfo.position + sr.epsilonBias * shadowray_direction;
             FragmentInfo shadowHitInfo = intersectScene(shadowray_origin, shadowray_direction, sr);
 
-//            float distToLight = glm::length(light.position - fragmentInfo.position);
-//            float distToHit = glm::length(shadowHitInfo.position - fragmentInfo.position);
+           float distToLight = glm::length(light.position - fragmentInfo.position);
+           float distToHit = glm::length(shadowHitInfo.position - fragmentInfo.position);
 
-            float distToLight = glm::dot(light.position - fragmentInfo.position, shadowray_direction);
-            float distToHit = shadowHitInfo.t;
+            // float distToLight = glm::dot(light.position - fragmentInfo.position, shadowray_direction);
+            // float distToHit = shadowHitInfo.t;
 
             if(!shadowHitInfo.validHit || distToLight < distToHit) {
                 float attenuation = light.attenuation[0]
@@ -116,7 +145,7 @@ glm::vec3 trace(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sr, const fl
 
 void raytrace(std::string scenefilename) {
 	SceneReader sr;
-	sr.readScene(scenefilename);
+	sr.readScene(scenefilename, true);
 	sr.camera.updateAxes();
 
 	std::cout<<"initialize image buffer space"<<std::endl;
@@ -163,9 +192,9 @@ int main() {
 //	raytrace("res/scene4-diffuse.test");
 //	raytrace("res/scene4-emission.test");
 //	raytrace("res/scene4-specular.test");
-//	raytrace("res/scene5.test");		// many spheres
-	raytrace("res/scene6.test");		// cornell box
-//	raytrace("res/scene7.test");		// dragon
+	// raytrace("res/scene5.test");		// many spheres
+	// raytrace("res/scene6.test");		// cornell box
+	raytrace("res/scene7.test");		// dragon
 
 	return 0;
 }

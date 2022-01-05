@@ -21,7 +21,6 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-
 class PrimitivesGroup : public IIntersectable {
 	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
 public:
@@ -39,7 +38,7 @@ public:
 	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir) {
 		// all geometries in cell get brute forced
         HitInfo min_hitInfo;
-        ITransformedIntersectable *min_geometry_ptf;
+        ITransformedIntersectable *min_geometry_ptr;
         for(auto const& geometry_ptr : this->geometries)  {
 
             const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
@@ -49,15 +48,22 @@ public:
             // has to be intersection at current cell
             if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {
             	min_hitInfo = hitInfo;
-            	min_geometry_ptf = geometry_ptr;
+            	min_geometry_ptr = geometry_ptr;
             }
         }
 
         if(min_hitInfo.validHit) {
-        	return FragmentInfo(true, min_hitInfo.t,
-        			rayOrigin + min_hitInfo.t * rayDir,
-					normalTransform(min_geometry_ptf->transform, min_hitInfo.normal),
-					min_hitInfo.material);
+        	// return FragmentInfo(true, min_hitInfo.t,
+        	// 		rayOrigin + min_hitInfo.t * rayDir,
+			// 		normalTransform(min_geometry_ptf->transform, min_hitInfo.normal),
+			// 		min_hitInfo.material);
+			FragmentInfo fragmentInfo;
+			fragmentInfo.validHit = true;
+			fragmentInfo.t = min_hitInfo.t;
+			fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
+			fragmentInfo.normal = normalTransform(min_geometry_ptr->transform, min_hitInfo.normal);
+			fragmentInfo.material = min_hitInfo.material;
+			return fragmentInfo;
         }
         return FragmentInfo();
 	};

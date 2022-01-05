@@ -1,9 +1,4 @@
-/*
- * grid.h
- *
- *  Created on: 02.01.2022
- *      Author: farnsworth
- */
+
 
 #ifndef SRC_GRID_H_
 #define SRC_GRID_H_
@@ -43,10 +38,17 @@ public:
         }
 
         if(min_hitInfo.validHit) {
-        	return FragmentInfo(true, min_hitInfo.t,
-        			rayOrigin + min_hitInfo.t * rayDir,
-					normalTransform(min_geometry_ptr->transform, min_hitInfo.normal),
-					min_hitInfo.material);
+        	// return FragmentInfo(true, min_hitInfo.t,
+        	// 		rayOrigin + min_hitInfo.t * rayDir,
+			// 		normalTransform(min_geometry_ptr->transform, min_hitInfo.normal),
+			// 		min_hitInfo.material);
+			FragmentInfo fragmentInfo;
+			fragmentInfo.validHit = true;
+			fragmentInfo.t = min_hitInfo.t;
+			fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
+			fragmentInfo.normal = normalTransform(min_geometry_ptr->transform, min_hitInfo.normal);
+			fragmentInfo.material = min_hitInfo.material;
+			return fragmentInfo;
         }
         return FragmentInfo();
 	};
@@ -78,7 +80,7 @@ public:
 	}
 
 	Grid(std::vector<ITransformedIntersectable*> *geometries_ptr) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
-		glm::vec3 resolution = glm::vec3(5, 5, 5);
+		glm::vec3 resolution = glm::vec3(5, 5, 5) * 3.0f;
 		auto [start, end] = this->getSceneBounds(geometries_ptr);
 		this->start_pos = start;
 		this->end_pos = end;
@@ -95,9 +97,9 @@ public:
 	~Grid() { }
 
 	inline std::tuple<int, int, int> getCellIndicesAtPosition(glm::vec3 position) {
-		int ix = clamp(glm::floor(position.x - start_pos.x) * resolution.x / size.x, 0, resolution.x - 1);
-		int iy = clamp(glm::floor(position.y - start_pos.y) * resolution.y / size.y, 0, resolution.y - 1);
-		int iz = clamp(glm::floor(position.z - start_pos.z) * resolution.z / size.z, 0, resolution.z - 1);
+		int ix = clamp(glm::floor(position.x - start_pos.x * resolution.x / size.x), 0, resolution.x - 1);
+		int iy = clamp(glm::floor(position.y - start_pos.y * resolution.y / size.y), 0, resolution.y - 1);
+		int iz = clamp(glm::floor(position.z - start_pos.z * resolution.z / size.z), 0, resolution.z - 1);
 
 		return {ix, iy, iz};
 	};
@@ -207,19 +209,19 @@ public:
 
 		auto [ index_x, index_y, index_z ] = this->getCellIndicesAtPosition(position);
 
-		float ix_step;
-		float ix_stop;
+		int ix_step;
+		int ix_stop;
 		float tx_next;
 		if(rayDir.x > 0) {
             ix_step = 1;
-            ix_stop = this->resolution.x;
-            float next_ix = index_x + 1;
+            ix_stop = int(this->resolution.x);
+            int next_ix = index_x + 1;
             tx_next = t_mins.x + next_ix * dt.x;
 		}
 		else if (rayDir.x < 0) {
             ix_step = -1;
             ix_stop = -1;
-            float next_ix = this->resolution.x - index_x;
+            int next_ix = int(this->resolution.x) - index_x;
             tx_next = t_mins.x + next_ix * dt.x;
 		}
 		else {
@@ -228,19 +230,19 @@ public:
             tx_next = FLOAT_MAX;
 		}
 
-		float iy_step;
-		float iy_stop;
+		int iy_step;
+		int iy_stop;
 		float ty_next;
 		if(rayDir.y > 0) {
             iy_step = 1;
-            iy_stop = this->resolution.y;
-            float next_iy = index_y + 1;
+            iy_stop = int(this->resolution.y);
+            int next_iy = index_y + 1;
             ty_next = t_mins.y + next_iy * dt.y;
 		}
 		else if (rayDir.y < 0) {
             iy_step = -1;
             iy_stop = -1;
-            float next_iy = this->resolution.y - index_y;
+            int next_iy = int(this->resolution.y) - index_y;
             ty_next = t_mins.y + next_iy * dt.y;
 		}
 		else {
@@ -249,19 +251,19 @@ public:
             ty_next = FLOAT_MAX;
 		}
 
-		float iz_step;
-		float iz_stop;
+		int iz_step;
+		int iz_stop;
 		float tz_next;
 		if(rayDir.z > 0) {
             iz_step = 1;
-            iz_stop = this->resolution.z;
-            float next_iz = index_z + 1;
+            iz_stop = int(this->resolution.z);
+            int next_iz = index_z + 1;
             tz_next = t_mins.z + next_iz * dt.z;
 		}
 		else if (rayDir.z < 0) {
             iz_step = -1;
             iz_stop = -1;
-            float next_iz = this->resolution.z - index_z;
+            int next_iz = int(this->resolution.z) - index_z;
             tz_next = t_mins.z + next_iz * dt.z;
 		}
 		else {
