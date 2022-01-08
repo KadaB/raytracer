@@ -34,7 +34,7 @@ public:
 	}
 
 	Grid(std::vector<ITransformedIntersectable*> *geometries_ptr) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
-		glm::vec3 resolution = glm::vec3(5, 5, 5) * 1.0f;
+		glm::vec3 resolution = glm::vec3(1, 1, 1) * 15.0f;
 		auto [start, end] = this->getSceneBounds(geometries_ptr);
 		this->start_pos = start;
 		this->end_pos = end;
@@ -51,9 +51,9 @@ public:
 	~Grid() { }
 
 	inline std::tuple<int, int, int> getCellIndicesAtPosition(glm::vec3 position) {
-		int ix = clamp(glm::floor(position.x - start_pos.x * resolution.x / size.x), 0, resolution.x - 1);
-		int iy = clamp(glm::floor(position.y - start_pos.y * resolution.y / size.y), 0, resolution.y - 1);
-		int iz = clamp(glm::floor(position.z - start_pos.z * resolution.z / size.z), 0, resolution.z - 1);
+		int ix = clamp(glm::floor((position.x - start_pos.x) * resolution.x / size.x), 0, resolution.x - 1);
+		int iy = clamp(glm::floor((position.y - start_pos.y) * resolution.y / size.y), 0, resolution.y - 1);
+		int iz = clamp(glm::floor((position.z - start_pos.z) * resolution.z / size.z), 0, resolution.z - 1);
 
 		return {ix, iy, iz};
 	};
@@ -146,7 +146,7 @@ public:
 		return false;
 	}
 
-	FragmentInfo traverseGrid(glm::vec3 rayOrigin, glm::vec3 rayDir) {
+	FragmentInfo traverseGrid(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_limit) {
 		auto [ isHit, t, t_mins, dt ] = this->collidesWithBox(rayOrigin, rayDir);
 
 		if(!isHit) {
@@ -227,7 +227,7 @@ public:
 		}
 
 		while(index_x != ix_stop && index_y != iy_stop && index_z != iz_stop) {
-			float t_next_min = std::min({tx_next, ty_next, tz_next}); // readability/convenience
+			float t_next_min = std::min({tx_next, ty_next, tz_next, t_limit}); // readability/convenience
 
 			Container *cell = this->getCellAtIndices(index_x, index_y, index_z);
 			FragmentInfo fragmentInfo = cell->intersect(rayOrigin, rayDir, t_next_min);
@@ -248,13 +248,16 @@ public:
 				index_z += iz_step;
 				tz_next += dt.z;
 			}
+			else if(t_next_min == t_limit) {
+				return FragmentInfo();
+			}
 		}
 
 		return FragmentInfo();
 	}
 
 	virtual FragmentInfo intersect(glm::vec3 O, glm::vec3 D, float t_limit = FLT_MAX) {
-		return this->traverseGrid(O, D);
+		return this->traverseGrid(O, D, t_limit);
 	};
 
 	virtual std::pair<glm::vec3, glm::vec3> getExtends() {
