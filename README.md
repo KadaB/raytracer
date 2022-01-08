@@ -1,7 +1,7 @@
 # raytracer
 A ray transfroming raytracer I wrote during the Edx Course "Computer Graphics"
 
-It uses Regular Grids as an acceleration structure.
+It uses Regular Grids as the acceleration structure.
 
 Renders the scene given by the course:
 
