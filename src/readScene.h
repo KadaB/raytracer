@@ -21,53 +21,6 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-class PrimitivesGroup : public IIntersectable {
-	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
-public:
-	PrimitivesGroup(std::vector<ITransformedIntersectable*> *geometries_ptr) {
-		for(auto const& geometry_ptr : *geometries_ptr) {
-			this->add(geometry_ptr);
-        }
-	};
-	~PrimitivesGroup() { };
-
-	void add(ITransformedIntersectable* geometry_ptr) {
-		this->geometries.push_back(geometry_ptr);
-	};
-
-	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir) {
-		// all geometries in cell get brute forced
-        HitInfo min_hitInfo;
-        ITransformedIntersectable *min_geometry_ptr;
-        for(auto const& geometry_ptr : this->geometries)  {
-
-            const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
-            glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
-            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
-
-            // has to be intersection at current cell
-            if(hitInfo.validHit && hitInfo.t < min_hitInfo.t) {
-            	min_hitInfo = hitInfo;
-            	min_geometry_ptr = geometry_ptr;
-            }
-        }
-
-        if(min_hitInfo.validHit) {
-        	// return FragmentInfo(true, min_hitInfo.t,
-        	// 		rayOrigin + min_hitInfo.t * rayDir,
-			// 		normalTransform(min_geometry_ptf->transform, min_hitInfo.normal),
-			// 		min_hitInfo.material);
-			FragmentInfo fragmentInfo;
-			fragmentInfo.validHit = true;
-			fragmentInfo.t = min_hitInfo.t;
-			fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
-			fragmentInfo.normal = normalTransform(min_geometry_ptr->transform, min_hitInfo.normal);
-			fragmentInfo.material = min_hitInfo.material;
-			return fragmentInfo;
-        }
-        return FragmentInfo();
-	};
-};
 
 struct SceneReader {
 	Camera camera;
@@ -90,11 +43,11 @@ struct SceneReader {
 	};
 
 	void readScene(std::string filename, bool useGrid = false) {
-        glm::vec3 cur_diffuseColor(0, 0, 0);
+        glm::vec3 cur_diffuseColor(1, 1, 1);
         glm::vec3 cur_ambientColor(0, 0, 0);
         glm::vec3 cur_specularColor(0, 0, 0);
         glm::vec3 cur_emissionColor(0, 0, 0);
-        glm::vec3 cur_attenuationTerms(0, 0, 1);
+        glm::vec3 cur_attenuationTerms(1, 0, 0);
         float cur_shininessValue = 40;
 
 		std::stack<glm::mat4> transformStack;
@@ -224,7 +177,7 @@ struct SceneReader {
 			this->scene_content = std::make_unique<Grid>(&geometries);
 		}
 		else {
-			this->scene_content = std::make_unique<PrimitivesGroup>(&geometries);
+			this->scene_content = std::make_unique<Container>(&geometries);
 		}
 	}
 };

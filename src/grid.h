@@ -8,59 +8,13 @@
 
 #include<tuple>
 
-class GridCell {
-	std::vector<ITransformedIntersectable*> geometries;		// cells of vectors
-private:
-public:
-	GridCell() {
-	};
-	~GridCell() { };
-
-	void add(ITransformedIntersectable* geometry_ptr) {
-		this->geometries.push_back(geometry_ptr);
-	};
-
-	virtual FragmentInfo intersect(glm::vec3 rayOrigin, glm::vec3 rayDir, float t_next_min) {
-		// all geometries in cell get brute forced
-        HitInfo min_hitInfo;
-        ITransformedIntersectable *min_geometry_ptr;
-        for(auto const& geometry_ptr : this->geometries)  {
-            const glm::vec3 rayOrigin_os = transformPoint(glm::inverse(geometry_ptr->transform), rayOrigin);
-            glm::vec3 rayDir_os = transformDirection(glm::inverse(geometry_ptr->transform), rayDir);
-
-            HitInfo hitInfo = geometry_ptr->intersect(rayOrigin_os, rayDir_os);
-
-            // has to be intersection at current cell
-            if(hitInfo.validHit && hitInfo.t < t_next_min && hitInfo.t < min_hitInfo.t) {
-            	min_hitInfo = hitInfo;
-            	min_geometry_ptr = geometry_ptr;
-            }
-        }
-
-        if(min_hitInfo.validHit) {
-        	// return FragmentInfo(true, min_hitInfo.t,
-        	// 		rayOrigin + min_hitInfo.t * rayDir,
-			// 		normalTransform(min_geometry_ptr->transform, min_hitInfo.normal),
-			// 		min_hitInfo.material);
-			FragmentInfo fragmentInfo;
-			fragmentInfo.validHit = true;
-			fragmentInfo.t = min_hitInfo.t;
-			fragmentInfo.position = rayOrigin + min_hitInfo.t * rayDir;
-			fragmentInfo.normal = normalTransform(min_geometry_ptr->transform, min_hitInfo.normal);
-			fragmentInfo.material = min_hitInfo.material;
-			return fragmentInfo;
-        }
-        return FragmentInfo();
-	};
-};
-
 class Grid : public IIntersectable {
 	glm::vec3 start_pos; // lowest bounds in aabb
 	glm::vec3 end_pos; 	 // highest bounds ind aabb
 	glm::vec3 size; 	 // w, h, d
 	glm::vec3 resolution;// grid resolution
 
-	std::unique_ptr<GridCell[]> cells;		// cells of vectors
+	std::unique_ptr<Container[]> cells;		// cells of vectors
 
 public:
 
@@ -80,14 +34,14 @@ public:
 	}
 
 	Grid(std::vector<ITransformedIntersectable*> *geometries_ptr) {		//glm::vec3 start_pos, glm::vec3 end_pos, glm::vec3 resolution)  {
-		glm::vec3 resolution = glm::vec3(5, 5, 5) * 3.0f;
+		glm::vec3 resolution = glm::vec3(5, 5, 5) * 1.0f;
 		auto [start, end] = this->getSceneBounds(geometries_ptr);
 		this->start_pos = start;
 		this->end_pos = end;
 		this->size = end - start;
 		this->resolution = resolution;
 
-		cells = std::make_unique<GridCell[]>(int(resolution.x) * int(resolution.y) * int(resolution.z));
+		cells = std::make_unique<Container[]>(int(resolution.x) * int(resolution.y) * int(resolution.z));
 
 		for(auto const& geometry_ptr : *geometries_ptr) {
             this->placeIntoGrid(geometry_ptr);
@@ -113,7 +67,7 @@ public:
 		this->cells.get()[offset].add(geometry_ptr);
 	};
 
-	GridCell* getCellAtIndices(int index_x, int index_y, int index_z) {
+	Container* getCellAtIndices(int index_x, int index_y, int index_z) {
 		auto offset = this->getOffsetAtIndices(index_x, index_y, index_z);
 		return &this->cells.get()[offset];
 	};
@@ -275,7 +229,7 @@ public:
 		while(index_x != ix_stop && index_y != iy_stop && index_z != iz_stop) {
 			float t_next_min = std::min({tx_next, ty_next, tz_next}); // readability/convenience
 
-			GridCell *cell = this->getCellAtIndices(index_x, index_y, index_z);
+			Container *cell = this->getCellAtIndices(index_x, index_y, index_z);
 			FragmentInfo fragmentInfo = cell->intersect(rayOrigin, rayDir, t_next_min);
 
 			if(fragmentInfo.validHit) {
@@ -299,7 +253,7 @@ public:
 		return FragmentInfo();
 	}
 
-	virtual FragmentInfo intersect(glm::vec3 O, glm::vec3 D) {
+	virtual FragmentInfo intersect(glm::vec3 O, glm::vec3 D, float t_limit = FLT_MAX) {
 		return this->traverseGrid(O, D);
 	};
 

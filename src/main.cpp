@@ -27,11 +27,11 @@
 using namespace std;
 using namespace glm;
 
-FragmentInfo intersectScene2(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
+FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	return sceneReader.scene_content->intersect(rayOrigin, rayDir);
 }
 
-FragmentInfo intersectScene(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
+FragmentInfo intersectScene2(glm::vec3 rayOrigin, glm::vec3 rayDir, SceneReader &sceneReader) {
 	HitInfo min_hitInfo;
 	ITransformedIntersectable *min_geometry;
 
